@@ -1,0 +1,14 @@
+(library
+ ((name        libbitcoin)
+  (public_name libbitcoin)
+  (modules (error data hash ec_private ec_public script payment_address transaction))
+  (libraries (hex ptime ctypes.foreign))
+  (c_names (stubs))
+  (c_flags (:include c_flags.sexp))
+  (c_library_flags (:include c_library_flags.sexp))))
+
+(rule
+ ((targets (c_flags.sexp
+            c_library_flags.sexp))
+  (deps    (config/discover.exe))
+  (action  (run ${<} -ocamlc ${OCAMLC}))))
