@@ -44,13 +44,13 @@ module Chunk = struct
   let of_hex hex =
     of_bytes (Hex.to_string hex)
 
-  let to_string (Chunk t) =
+  let to_bytes (Chunk t) =
     let str = to_string t in
     let ret = string_from_ptr str ~length:(size t) in
     ret
 
   let to_hex chunk =
-    Hex.of_string (to_string chunk)
+    Hex.of_string (to_bytes chunk)
 end
 
 module String = struct

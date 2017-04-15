@@ -1,30 +1,47 @@
 open Sodium
 open Libbitcoin
 
+let test_transaction =
+  `Hex "01000000017b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f00000000494830450221008949f0cb400094ad2b5eb399d59d01c14d73d8fe6e96df1a7150deb388ab8935022079656090d7f6bac4c9a94e0aad311a4268e082a725f8aeae0573fb12ff866a5f01ffffffff01f0ca052a010000001976a914cbc20a7664f2f69e5355aa427045bc15e7c6c77288ac00000000"
+
 let gen_32bytes () =
   Sodium.Random.Bytes.generate 32
 
 let test_transaction () =
   let open Transaction in
-  let sk = Ec_private.of_wif_exn "cQLub6EDzTRhBxESxZPJ7XAUcwnM8XyTgNM4sr1S8AzxBp2LQpPc" in
+
+  (* Decode test_transaction *)
+  begin
+    match Transaction.of_hex test_transaction with
+  | None -> invalid_arg "unable to decode transaction"
+  | Some t ->
+      Format.printf "%a@." Transaction.pp t
+  end ;
+
+  let sk = Ec_private.of_wif_exn
+      "cQLub6EDzTRhBxESxZPJ7XAUcwnM8XyTgNM4sr1S8AzxBp2LQpPc" in
   let pk = Ec_public.of_private sk in
   let secret = Ec_private.secret sk in
-  let txid = `Hex "80720308cf2830cfe79bcf28ca94d87c7bfd4040771688003ee22ffe7f974050" in
-  let scriptPubKey = `Hex "76a9148f3a46528003916c72c0e8e0d40a9175d5d6b74088ac" in
+  let txid =
+    `Hex "80720308cf2830cfe79bcf28ca94d87c7bfd4040771688003ee22ffe7f974050" in
+  let scriptPubKey =
+    `Hex "76a9148f3a46528003916c72c0e8e0d40a9175d5d6b74088ac" in
   let tx = Hash.Hash32.of_hex_exn txid in
-  let previous_output = Output_point.create ~tx ~txid:1 in
+  let prev_out = Output_point.create ~hash:tx ~index:1 in
   let prev_out_script = match Script.of_hex scriptPubKey with
     | Some script -> script
     | None -> invalid_arg "prev_out_script" in
   assert (Script.is_valid prev_out_script) ;
-  let input = Input.create ~previous_output ~script:(Script.invalid ()) () in
+  let input = Input.create ~prev_out ~script:(Script.invalid ()) () in
   assert (Input.is_valid input) ;
-  let payment_addr = Payment_address.of_b58check_exn "3EAbU8GtLymWvcqebCZUwYuZV1QcHsxqzb" in
+  let payment_addr =
+    Payment_address.of_b58check_exn "3EAbU8GtLymWvcqebCZUwYuZV1QcHsxqzb" in
   let script = Payment_address.to_script payment_addr in
   assert (Script.is_valid script) ;
   let output = Output.create ~value:10_000L ~script in
   assert (Output.is_valid output) ;
   let tx = create [input] [output] in
+  Format.printf "%a@." Transaction.pp tx ;
   let Sign.Endorsement endorsement =
     match Sign.endorse ~tx ~input_id:0 ~prev_out_script ~secret () with
   | Some endorsement -> endorsement
@@ -32,16 +49,39 @@ let test_transaction () =
   let script = Script.endorsement endorsement pk in
   assert (Script.is_valid script) ;
   let new_inputs =
-    ListLabels.map (get_inputs tx) ~f:(fun i -> Input.set_script i script; i) in
+    ListLabels.map tx.inputs.inputs ~f:(fun i -> Input.set_script i script; i) in
   set_inputs tx new_inputs ;
   begin match Transaction.check tx with
     | Ok () -> ()
-    | Error msg -> Printf.printf "Error: %s\n" msg ;
+    | Error msg -> Printf.printf "tx: %s\n" msg ;
   end ;
-  let `Hex tx_hex = Data.Chunk.to_hex (to_data tx) in
-  let `Hex tx_hex_nowire = Data.Chunk.to_hex (to_data ~wire:false tx) in
+  let `Hex tx_hex = to_hex tx in
+  let `Hex tx_hex_nowire = to_hex ~wire:false tx in
   Printf.printf "%s\n" tx_hex ;
-  Printf.printf "%s\n" tx_hex_nowire
+  Printf.printf "%s\n" tx_hex_nowire ;
+  let tx_chunk_parsed =
+    begin match Transaction.of_hex (`Hex tx_hex) with
+      | Some tx -> tx
+      | None -> failwith "Transaction.from_data"
+    end
+  in
+  let tx_chunk_parsed_nowire =
+    begin match Transaction.of_hex ~wire:false (`Hex tx_hex_nowire) with
+      | Some tx -> tx
+      | None -> failwith "Transaction.from_data"
+    end
+  in
+  Format.printf "%a@." Transaction.pp tx_chunk_parsed ;
+  Format.printf "%a@." Transaction.pp tx_chunk_parsed_nowire ;
+  begin match Transaction.check tx_chunk_parsed with
+    | Ok () -> ()
+    | Error msg -> Printf.printf "tx_chunk_parsed: %s\n" msg ;
+  end ;
+  assert (Transaction.is_valid tx_chunk_parsed_nowire) ;
+  begin match Transaction.check tx_chunk_parsed_nowire with
+    | Ok () -> ()
+    | Error msg -> Printf.printf "tx_chunk_parsed_nowire: %s\n" msg ;
+  end
 
 let () =
   Sodium.Random.stir () ;
@@ -69,4 +109,3 @@ let () =
     | None -> raise Exit
   end ;
   test_transaction ()
-

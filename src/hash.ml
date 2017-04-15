@@ -11,6 +11,9 @@ module type S = sig
 
   val to_bytes : t -> string
   val to_hex : t -> Hex.t
+
+  val pp : Format.formatter -> t -> unit
+  val show : t -> string
 end
 
 module Make (Size : sig val length : int end) = struct
@@ -34,6 +37,14 @@ module Make (Size : sig val length : int end) = struct
 
   let to_bytes t = t
   let to_hex t = Hex.of_string t
+
+  let pp ppf t =
+    let `Hex t_hex = to_hex t in
+    Format.fprintf ppf "%s" t_hex
+
+  let show t =
+    let `Hex t_hex = to_hex t in
+    t_hex
 end
 
 module Hash20 = Make(struct let length = 20 end)
@@ -46,7 +57,7 @@ let destroy_hash =
   foreign "bc_destroy_hash_digest"
     ((ptr void) @-> returning void)
 
-let hash ptr =
+let hash_of_ptr ptr =
   Gc.finalise destroy_hash ptr ;
   Hash ptr
 
@@ -86,7 +97,7 @@ let cdata =
   foreign "bc_short_hash__cdata"
     (ptr void @-> returning (ptr char))
 
-let short_hash ptr =
+let short_hash_of_ptr ptr =
   Gc.finalise destroy_short_hash ptr ;
   Short_hash ptr
 

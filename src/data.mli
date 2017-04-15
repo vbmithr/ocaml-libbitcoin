@@ -18,6 +18,6 @@ module Chunk : sig
   val of_bytes : string -> t
   val of_hex : Hex.t -> t
 
-  val to_string : t -> string
+  val to_bytes : t -> string
   val to_hex : t -> Hex.t
 end

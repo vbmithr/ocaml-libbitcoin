@@ -78,7 +78,7 @@ let to_b58check (Payment_address t) =
 let to_hash (Payment_address t) =
   let hash = foreign "bc_payment_address__hash"
       ((ptr void) @-> returning (ptr void)) in
-  Hash.short_hash (hash t)
+  Hash.short_hash_of_ptr (hash t)
 
 let to_script addr =
   let hash = to_hash addr in

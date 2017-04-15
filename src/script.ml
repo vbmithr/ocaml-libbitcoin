@@ -1,6 +1,37 @@
 open Ctypes
 open Foreign
 
+type rule_fork =
+  | Easy_blocks
+  | BIP16
+  | BIP30
+  | BIP34
+  | BIP66
+  | BIP65
+  | Allowed_duplicates
+  | Deep_freeze
+  | Activations
+  | Consensus
+  | All
+
+let int_of_rule_fork = function
+  | Easy_blocks -> 1 lsl 0
+  | BIP16 -> 1 lsl 1
+  | BIP30 -> 1 lsl 2
+  | BIP34 -> 1 lsl 3
+  | BIP66 -> 1 lsl 4
+  | BIP65 -> 1 lsl 5
+  | Allowed_duplicates -> 1 lsl 6
+  | Deep_freeze -> 1 lsl 7
+  | Activations -> 7 lsl 3
+  | Consensus -> 63 lsl 1
+  | All -> lnot 0
+
+let int_of_rule_forks =
+  ListLabels.fold_left ~init:0 ~f:begin fun a rf ->
+    a lor (int_of_rule_fork rf)
+  end
+
 type t = Script of unit ptr
 
 let destroy = foreign "bc_destroy_script"
@@ -38,6 +69,18 @@ let of_bytes ?(prefix=false) bytes =
 
 let of_hex ?prefix hex =
   of_bytes ?prefix (Hex.to_string hex)
+
+let to_string ?(active_forks=[]) (Script script) =
+  let to_string = foreign "bc_script__to_string"
+      (ptr void @-> int @-> returning (ptr void)) in
+  let active_forks = int_of_rule_forks active_forks in
+  let str = to_string script active_forks in
+  Data.String.(of_ptr str |> to_string)
+
+let pp ppf t =
+  Format.fprintf ppf "%s" (to_string t)
+
+let show t = to_string t
 
 let of_mnemonic str =
   let script = create () in
