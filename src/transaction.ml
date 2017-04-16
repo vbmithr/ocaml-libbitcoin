@@ -23,12 +23,10 @@ end = struct
   }
 
   let pp ppf { hash ; index } =
-    let `Hex hash_hex = Hash.Hash32.to_hex hash in
-    Format.fprintf ppf "%s:%d" hash_hex index
+    Format.fprintf ppf "%a:%d" Hash.Hash32.pp hash index
 
-  let show { hash ; index } =
-    let `Hex hash_hex = Hash.Hash32.to_hex hash in
-    Printf.sprintf "%s:%d" hash_hex index
+  let show t =
+    Format.asprintf "%a" pp t
 
   let of_ptr point_ptr =
     let get_hash = foreign "bc_point__hash"

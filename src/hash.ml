@@ -10,7 +10,6 @@ module type S = sig
   val of_hex : Hex.t -> t option
 
   val to_bytes : t -> string
-  val to_hex : t -> Hex.t
 
   val pp : Format.formatter -> t -> unit
   val show : t -> string
@@ -18,6 +17,14 @@ end
 
 module Make (Size : sig val length : int end) = struct
   type t = string
+
+  let string_rev s =
+    let len = String.length s in
+    let b = Bytes.create len in
+    StringLabels.iteri s ~f:begin fun i c ->
+      Bytes.set b (len - 1 - i) c
+    end ;
+    Bytes.unsafe_to_string b
 
   let of_bytes_exn b =
     if String.length b <> Size.length then
@@ -28,7 +35,7 @@ module Make (Size : sig val length : int end) = struct
     let b = Hex.to_string hex in
     if String.length b <> Size.length then
       invalid_arg "of_bytes_exn"
-    else b
+    else (string_rev b)
 
   let of_bytes b =
     try Some (of_bytes_exn b) with _ -> None
@@ -39,15 +46,14 @@ module Make (Size : sig val length : int end) = struct
   let to_hex t = Hex.of_string t
 
   let pp ppf t =
-    let `Hex t_hex = to_hex t in
+    let `Hex t_hex = to_hex (string_rev t) in
     Format.fprintf ppf "%s" t_hex
 
   let show t =
-    let `Hex t_hex = to_hex t in
+    let `Hex t_hex = to_hex (string_rev t) in
     t_hex
 end
 
-module Hash20 = Make(struct let length = 20 end)
 module Hash32 = Make(struct let length = 32 end)
 
 type hash = Hash of unit ptr
@@ -55,7 +61,7 @@ type short_hash = Short_hash of unit ptr
 
 let destroy_hash =
   foreign "bc_destroy_hash_digest"
-    ((ptr void) @-> returning void)
+    (ptr void @-> returning void)
 
 let hash_of_ptr ptr =
   Gc.finalise destroy_hash ptr ;
@@ -71,31 +77,36 @@ let hash_of_bytes str =
   Gc.finalise destroy_hash ret ;
   Hash ret
 
-let hash_of_hex hex =
-  hash_of_bytes (Hex.to_string hex)
+let hash_of_hex (`Hex hex) =
+  let hash_literal = foreign "bc_hash_literal"
+      (string @-> returning (ptr void)) in
+  let h = hash_literal hex in
+  Gc.finalise destroy_hash h ;
+  Hash h
+
+let cdata =
+  foreign "bc_short_hash__cdata"
+    (ptr void @-> returning (ptr char))
 
 let hash_to_bytes (Hash t) =
-  let cdata =
-    foreign "bc_hash_digest__cdata"
-      (ptr void @-> returning (ptr char)) in
   let str = cdata t in
   let ret = string_from_ptr str ~length:32 in
   ret
 
-let hash_to_hex t =
-  Hex.of_string (hash_to_bytes t)
-
-let destroy_short_hash =
-  foreign "bc_destroy_short_hash"
-    ((ptr void) @-> returning void)
+let hash_to_hex (Hash hash_ptr) =
+  let encode_hash = foreign "bc_encode_hash"
+      (ptr void @-> returning (ptr void)) in
+  let string_ptr = encode_hash hash_ptr in
+  let str = Data.String.of_ptr string_ptr in
+  `Hex (Data.String.to_string str)
 
 let create =
   foreign "bc_create_short_hash_Array"
     (string @-> returning (ptr void))
 
-let cdata =
-  foreign "bc_short_hash__cdata"
-    (ptr void @-> returning (ptr char))
+let destroy_short_hash =
+  foreign "bc_destroy_short_hash"
+    (ptr void @-> returning void)
 
 let short_hash_of_ptr ptr =
   Gc.finalise destroy_short_hash ptr ;
