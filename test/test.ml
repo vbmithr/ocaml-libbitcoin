@@ -42,8 +42,10 @@ let test_transaction () =
   assert (Output.is_valid output) ;
   let tx = create [input] [output] in
   Format.printf "%a@." Transaction.pp tx ;
+  let `Hex tx_hex = Transaction.to_hex tx in
+  Printf.printf "%s\n" tx_hex ;
   let Sign.Endorsement endorsement =
-    match Sign.endorse ~tx ~input_id:0 ~prev_out_script ~secret () with
+    match Sign.endorse ~tx ~prev_out_script ~secret () with
   | Some endorsement -> endorsement
   | None -> invalid_arg "Sign.endorse" in
   let script = Script.endorsement endorsement pk in

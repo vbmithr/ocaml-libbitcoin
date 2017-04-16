@@ -342,24 +342,6 @@ let locktime_of_int = function
       | None -> invalid_arg "locktime_of_int"
       | Some t -> Time t
 
-type hashtype =
-  | All
-  | None
-  | Single
-  | AnyoneCanPay
-
-let int_of_hashtype = function
-  | All -> 0x1
-  | None -> 0x2
-  | Single -> 0x3
-  | AnyoneCanPay -> 0x80
-
-let int_of_hashtypes hts =
-  ListLabels.fold_left hts ~init:0 ~f:begin fun acc ht ->
-    let ht = int_of_hashtype ht in
-    acc lor ht
-  end
-
 type t = {
   hash : Hash.Hash32.t ;
   version : int ;
@@ -482,6 +464,24 @@ let check { transaction_ptr } =
   | Some msg -> Error msg
 
 module Sign = struct
+  type hashtype =
+    | All
+    | None
+    | Single
+    | AnyoneCanPay
+
+  let int_of_hashtype = function
+    | All -> 0x1
+    | None -> 0x2
+    | Single -> 0x3
+    | AnyoneCanPay -> 0x80
+
+  let int_of_hashtypes hts =
+    ListLabels.fold_left hts ~init:0 ~f:begin fun acc ht ->
+      let ht = int_of_hashtype ht in
+      acc lor ht
+    end
+
   type endorsement = Endorsement of Data.Chunk.t
 
   let create_endorsement = foreign "bc_script__create_endorsement"
@@ -489,16 +489,16 @@ module Sign = struct
        (ptr void) @-> int @-> int @-> returning bool)
 
   let endorse
-      ?(hashtype=[])
+      ?(hashtype=[All])
+      ?(index=0)
       ~tx:{ transaction_ptr }
-      ~input_id
       ~prev_out_script:(Script.Script script)
       ~secret:(Ec_private.Ec_secret.Ec_secret secret)
       () =
     let chunk = Data.Chunk.create () in
     let chunk_ptr = match chunk with Data.Chunk.Chunk ptr -> ptr in
     match create_endorsement chunk_ptr secret script
-            transaction_ptr input_id (int_of_hashtypes hashtype) with
+            transaction_ptr index (int_of_hashtypes hashtype) with
     | true -> Some (Endorsement chunk)
     | false -> None
 end

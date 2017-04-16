@@ -79,12 +79,6 @@ module Output : sig
   end
 end
 
-type hashtype =
-  | All
-  | None
-  | Single
-  | AnyoneCanPay
-
 type locktime =
   | Immediate
   | Block of int
@@ -121,12 +115,18 @@ val to_bytes : ?wire:bool -> t -> string
 val to_hex : ?wire:bool -> t -> Hex.t
 
 module Sign : sig
+  type hashtype =
+    | All
+    | None
+    | Single
+    | AnyoneCanPay
+
   type endorsement = private Endorsement of Data.Chunk.t
 
   val endorse :
     ?hashtype:hashtype list ->
+    ?index:int ->
     tx:t ->
-    input_id:int ->
     prev_out_script:Script.t ->
     secret:Ec_private.Ec_secret.t ->
     unit -> endorsement option
