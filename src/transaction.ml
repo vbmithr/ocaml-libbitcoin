@@ -136,7 +136,7 @@ module Input = struct
 
   let pp ppf { sequence ; prev_out ; script } =
     Format.fprintf ppf
-      "{@[<hov 1> sequence = %ld ;@;prev_out = %a ;@;script = %a }@]"
+      "{@[<hov 1> sequence = 0x%lx ;@;prev_out = %a ;@;script = %a }@]"
       sequence Output_point.pp prev_out Script.pp script
 
   let show t =
@@ -294,7 +294,9 @@ module Output = struct
     }
 
     let pp ppf t =
-      Format.pp_print_list pp ppf t.outputs
+      let open Format in
+      let pp_sep fmt () = fprintf fmt " ;@;" in
+      pp_print_list ~pp_sep pp ppf t.outputs
 
     let show t =
       Format.asprintf "%a" pp t
@@ -372,7 +374,7 @@ type t = {
 let pp ppf { hash ; version ; locktime ; inputs ; outputs } =
   Format.fprintf ppf
     "{@[<hov 1> hash = %a ;@;version@ = %d ;@;locktime = %a ;\
-     @;inputs = [%a] ;@;outputs = [%a]}@]"
+     @;inputs = [@[<hov 0>%a@]] ;@;outputs = [@[<hov 0>%a@]]}@]"
     Hash.Hash32.pp hash version pp_locktime locktime
     Input.List.pp inputs Output.List.pp outputs
 
