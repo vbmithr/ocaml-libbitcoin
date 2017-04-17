@@ -90,4 +90,43 @@ module String = struct
     let str = to_string t in
     let ret = string_from_ptr str ~length:(length t) in
     ret
+
+  module List = struct
+    let create = foreign
+        "bc_create_string_list"
+        (void @-> returning (ptr void))
+
+    let destroy = foreign "bc_destroy_string_list"
+        (ptr void @-> returning void)
+
+    let push_back = foreign "bc_string_list__push_back"
+        (ptr void @-> ptr void @-> returning void)
+
+    let size = foreign "bc_string_list__size"
+        (ptr void @-> returning int)
+
+    let get_at = foreign "bc_string_list__at"
+        (ptr void @-> int @-> returning (ptr void))
+
+    type t = String_list of unit ptr
+
+    let of_list strings =
+      let t = create () in
+      ListLabels.iter strings ~f:begin fun s ->
+        let String s_ptr = of_string s in
+        push_back t s_ptr
+      end ;
+      Gc.finalise destroy t ;
+      String_list t
+
+    let to_list (String_list t_ptr) =
+      let rec get acc = function
+        | n when n < 0 -> acc
+        | n -> get (to_string (of_ptr (get_at t_ptr n)) :: acc) (pred n) in
+      get [] (pred (size t_ptr))
+
+    let of_ptr ptr =
+      Gc.finalise destroy ptr ;
+      String_list ptr
+  end
 end

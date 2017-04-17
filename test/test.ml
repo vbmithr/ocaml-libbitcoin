@@ -7,6 +7,23 @@ let test_transaction =
 let gen_32bytes () =
   Sodium.Random.Bytes.generate 32
 
+let test_mnemonic () =
+  let entropy = Sodium.Random.Bytes.generate 20 in
+  let mnemo = Mnemonic.of_entropy entropy in
+  Printf.printf "%s\n" (String.concat " " mnemo) ;
+  begin match Mnemonic.to_seed ~passphrase:"Bleh" mnemo with
+  | None -> failwith "Mnemonic.to_seed"
+  | Some seed ->
+      let `Hex seed_hex = Hex.of_string seed in
+      Printf.printf "%s\n" seed_hex ;
+  end ;
+  begin match Mnemonic.to_seed mnemo with
+  | None -> failwith "Mnemonic.to_seed"
+  | Some seed ->
+      let `Hex seed_hex = Hex.of_string seed in
+      Printf.printf "%s\n" seed_hex ;
+  end
+
 let test_transaction () =
   let open Transaction in
 
@@ -110,4 +127,5 @@ let () =
     | Some _ -> print_endline addr_str
     | None -> raise Exit
   end ;
-  test_transaction ()
+  test_transaction () ;
+  test_mnemonic ()

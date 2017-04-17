@@ -7,6 +7,14 @@ module String : sig
   val of_string : ?pos:int -> ?len:int -> string -> t
 
   val to_string : t -> string
+
+  module List : sig
+    type t = private String_list of unit ptr
+    val of_ptr : unit ptr -> t
+
+    val of_list : string list -> t
+    val to_list : t -> string list
+  end
 end
 
 module Chunk : sig

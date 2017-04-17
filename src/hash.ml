@@ -58,6 +58,7 @@ module Hash32 = Make(struct let length = 32 end)
 
 type hash = Hash of unit ptr
 type short_hash = Short_hash of unit ptr
+type long_hash = Long_hash of unit ptr
 
 let destroy_hash =
   foreign "bc_destroy_hash_digest"
@@ -100,6 +101,8 @@ let hash_to_hex (Hash hash_ptr) =
   let str = Data.String.of_ptr string_ptr in
   `Hex (Data.String.to_string str)
 
+(* Short hash *)
+
 let create =
   foreign "bc_create_short_hash_Array"
     (string @-> returning (ptr void))
@@ -129,3 +132,35 @@ let short_hash_to_bytes (Short_hash t) =
 
 let short_hash_to_hex t =
   Hex.of_string (short_hash_to_bytes t)
+
+(* Long hash *)
+
+let create =
+  foreign "bc_create_long_hash_Array"
+    (string @-> returning (ptr void))
+
+let destroy_long_hash =
+  foreign "bc_destroy_long_hash"
+    (ptr void @-> returning void)
+
+let long_hash_of_ptr ptr =
+  Gc.finalise destroy_long_hash ptr ;
+  Long_hash ptr
+
+let long_hash_of_bytes str =
+  if String.length str <> 64 then
+    invalid_arg "Hash.long_hash_of_bytes: input must be 64 bytes long" ;
+  let ret = create str in
+  Gc.finalise destroy_long_hash ret ;
+  Long_hash ret
+
+let long_hash_of_hex hex =
+  long_hash_of_bytes (Hex.to_string hex)
+
+let long_hash_to_bytes (Long_hash t) =
+  let str = cdata t in
+  let ret = string_from_ptr str ~length:64 in
+  ret
+
+let long_hash_to_hex t =
+  Hex.of_string (long_hash_to_bytes t)

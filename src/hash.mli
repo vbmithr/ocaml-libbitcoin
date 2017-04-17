@@ -18,6 +18,7 @@ module Hash32 : S
 
 type hash = private Hash of unit ptr
 type short_hash = private Short_hash of unit ptr
+type long_hash = private Long_hash of unit ptr
 
 val hash_of_ptr : unit ptr -> hash
 val hash_of_bytes : string -> hash
@@ -34,3 +35,9 @@ val short_hash_of_bytes : string -> short_hash
 val short_hash_of_hex : Hex.t -> short_hash
 val short_hash_to_bytes : short_hash -> string
 val short_hash_to_hex : short_hash -> Hex.t
+
+val long_hash_of_ptr : unit ptr -> long_hash
+val long_hash_of_bytes : string -> long_hash
+val long_hash_of_hex : Hex.t -> long_hash
+val long_hash_to_bytes : long_hash -> string
+val long_hash_to_hex : long_hash -> Hex.t
