@@ -89,7 +89,7 @@ let of_mnemonic str =
   | false -> None
   | true -> Some (Script script)
 
-let add_data ?(append_space=true) buf data =
+let add_data ?(append_space=true) buf (`Hex data) =
   Buffer.add_char buf '[';
   Buffer.add_string buf data;
   Buffer.add_char buf ']';
@@ -103,11 +103,11 @@ let create_multisig ?data ~threshold addrs =
   let buf = Buffer.create 128 in
   begin match data with
   | None -> ()
-  | Some data -> add_data buf data
+  | Some data -> add_data buf (Hex.of_string data)
   end ;
   Buffer.add_string buf (string_of_int threshold) ;
   Buffer.add_char buf ' ' ;
-  ListLabels.iter addrs ~f:(fun (`Hex addr) -> add_data buf addr) ;
+  ListLabels.iter addrs ~f:(add_data buf) ;
   Buffer.add_string buf (string_of_int nb_addrs) ;
   Buffer.add_char buf ' ' ;
   Buffer.add_string buf "checkmultisig" ;
