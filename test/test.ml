@@ -44,12 +44,8 @@ let test_transaction () =
   let scriptPubKey =
     `Hex "76a9148f3a46528003916c72c0e8e0d40a9175d5d6b74088ac" in
   let tx = Hash.Hash32.of_hex_exn txid in
-  let prev_out = Output_point.create ~hash:tx ~index:1 in
-  let prev_out_script = match Script.of_hex scriptPubKey with
-    | Some script -> script
-    | None -> invalid_arg "prev_out_script" in
-  assert (Script.is_valid prev_out_script) ;
-  let input = Input.create ~prev_out ~script:(Script.invalid ()) () in
+  let input =
+    Input.create ~prev_out_hash:tx ~prev_out_index:1 ~script:(Script.invalid ()) () in
   assert (Input.is_valid input) ;
   let payment_addr =
     Payment_address.of_b58check_exn "3EAbU8GtLymWvcqebCZUwYuZV1QcHsxqzb" in
@@ -61,8 +57,12 @@ let test_transaction () =
   Format.printf "%a@." Transaction.pp tx ;
   let `Hex tx_hex = Transaction.to_hex tx in
   Printf.printf "%s\n" tx_hex ;
+  let prev_out_script = match Script.of_hex scriptPubKey with
+    | Some script -> script
+    | None -> invalid_arg "prev_out_script" in
+  assert (Script.is_valid prev_out_script) ;
   let Sign.Endorsement endorsement =
-    match Sign.endorse ~tx ~prev_out_script ~secret () with
+    match Sign.endorse ~tx ~index:0 ~prev_out_script ~secret () with
   | Some endorsement -> endorsement
   | None -> invalid_arg "Sign.endorse" in
   let script = Script.endorsement endorsement pk in

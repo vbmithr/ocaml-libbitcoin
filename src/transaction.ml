@@ -148,10 +148,13 @@ module Input = struct
 
   let create
       ?(sequence=0xffff_ffffl)
-      ~prev_out:(Output_point.{ output_point_ptr } as prev_out)
+      ~prev_out_hash
+      ~prev_out_index
       ~script:(Script.Script script_ptr as script) () =
+    let prev_out =
+      Output_point.create prev_out_hash prev_out_index in
     let input_ptr =
-      create output_point_ptr script_ptr sequence in
+      create prev_out.output_point_ptr script_ptr sequence in
     Gc.finalise destroy input_ptr ;
     { sequence ; prev_out ; script ; input_ptr }
 
@@ -490,8 +493,8 @@ module Sign = struct
 
   let endorse
       ?(hashtype=[All])
-      ?(index=0)
       ~tx:{ transaction_ptr }
+      ~index
       ~prev_out_script:(Script.Script script)
       ~secret:(Ec_private.Ec_secret.Ec_secret secret)
       () =

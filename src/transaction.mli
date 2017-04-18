@@ -37,7 +37,8 @@ module Input : sig
 
   val create :
     ?sequence:Int32.t ->
-    prev_out:Output_point.t ->
+    prev_out_hash:Hash.Hash32.t ->
+    prev_out_index:int ->
     script:Script.t ->
     unit -> t
 
@@ -125,8 +126,8 @@ module Sign : sig
 
   val endorse :
     ?hashtype:hashtype list ->
-    ?index:int ->
     tx:t ->
+    index:int ->
     prev_out_script:Script.t ->
     secret:Ec_private.Ec_secret.t ->
     unit -> endorsement option
