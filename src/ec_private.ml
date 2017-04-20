@@ -44,8 +44,10 @@ let destroy = foreign "bc_destroy_ec_private"
 let of_wif ?(version=Mainnet) wif =
   let create = foreign "bc_create_ec_private_String_Version"
       (string @-> int @-> returning (ptr void)) in
+  let is_valid = foreign "bc_ec_private__is_valid"
+      (ptr void @-> returning bool) in
   let t = create wif (int_of_version version) in
-  if ptr_compare t null = 0 then None
+  if not @@ is_valid t then None
   else begin
     Gc.finalise destroy t ;
     Some (Ec_private t)
