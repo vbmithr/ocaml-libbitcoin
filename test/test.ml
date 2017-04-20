@@ -1,13 +1,17 @@
 open Sodium
 open Libbitcoin
-
-let test_transaction =
-  `Hex "01000000017b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f00000000494830450221008949f0cb400094ad2b5eb399d59d01c14d73d8fe6e96df1a7150deb388ab8935022079656090d7f6bac4c9a94e0aad311a4268e082a725f8aeae0573fb12ff866a5f01ffffffff01f0ca052a010000001976a914cbc20a7664f2f69e5355aa427045bc15e7c6c77288ac00000000"
+open OUnit2
 
 let gen_32bytes () =
   Sodium.Random.Bytes.generate 32
 
-let test_mnemonic () =
+let test_wif ctx =
+  assert_equal None
+    (Ec_private.of_wif "fc2bedd07294f44a5d42f716bb1329d23e8353a638058b2ba71bafccce7ae5f2") ;
+  OUnit2.assert_bool "test_wif: valid wif key"
+    (Ec_private.of_wif "cW2tb8iwYTfp6pRBAp7JcWsJfYtidtfhkFPhQLFrQGurR9iiNzGZ" <> None)
+
+let test_mnemonic ctx =
   let entropy = Sodium.Random.Bytes.generate 20 in
   let mnemo = Mnemonic.of_entropy entropy in
   Printf.printf "%s\n" (String.concat " " mnemo) ;
@@ -24,11 +28,18 @@ let test_mnemonic () =
       Printf.printf "%s\n" seed_hex ;
   end
 
-let test_transaction () =
+let test_transaction ctx =
   let open Transaction in
 
   (* Decode test_transaction *)
-  begin
+  let test_transaction =
+    `Hex "01000000017b1eabe0209b1fe794124575ef807057c77ada2138ae4f\
+          a8d6c4de0398a14f3f00000000494830450221008949f0cb400094ad\
+          2b5eb399d59d01c14d73d8fe6e96df1a7150deb388ab893502207965\
+          6090d7f6bac4c9a94e0aad311a4268e082a725f8aeae0573fb12ff86\
+          6a5f01ffffffff01f0ca052a010000001976a914cbc20a7664f2f69e\
+          5355aa427045bc15e7c6c77288ac00000000" in
+      begin
     match Transaction.of_hex test_transaction with
   | None -> invalid_arg "unable to decode transaction"
   | Some t ->
@@ -102,7 +113,7 @@ let test_transaction () =
     | Error msg -> Printf.printf "tx_chunk_parsed_nowire: %s\n" msg ;
   end
 
-let () =
+let test_basic ctx =
   Sodium.Random.stir () ;
   let privkeys = ListLabels.map [() ; () ; ()] ~f:begin fun () ->
       let seed = gen_32bytes () in
@@ -126,6 +137,14 @@ let () =
     match Payment_address.of_b58check addr_str with
     | Some _ -> print_endline addr_str
     | None -> raise Exit
-  end ;
-  test_transaction () ;
-  test_mnemonic ()
+  end
+
+let suite =
+  "libbitcoin" >::: [
+    "test_basic" >:: test_basic ;
+    "test_transaction" >:: test_transaction ;
+    "test_mnemonic" >:: test_mnemonic ;
+    "test_wif" >:: test_wif ;
+  ]
+
+let () = run_test_tt_main suite
