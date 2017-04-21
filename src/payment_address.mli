@@ -2,6 +2,9 @@ open Ctypes
 
 type t = private Payment_address of unit ptr
 
+val pp : Format.formatter -> t -> unit
+val show : t -> string
+
 type version =
   | P2KH
   | P2SH

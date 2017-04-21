@@ -88,4 +88,9 @@ let to_script addr =
   | Some script -> script
   | None -> failwith "create_p2kh: internal"
 
+let pp ppf addr =
+  Format.fprintf ppf "%s" (to_b58check addr)
+
+let show addr =
+  Format.asprintf "%a" pp addr
 
