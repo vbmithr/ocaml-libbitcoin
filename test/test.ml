@@ -59,7 +59,7 @@ let test_transaction ctx =
     Input.create ~prev_out_hash:tx ~prev_out_index:1 ~script:(Script.invalid ()) () in
   assert (Input.is_valid input) ;
   let payment_addr =
-    Payment_address.of_b58check_exn "3EAbU8GtLymWvcqebCZUwYuZV1QcHsxqzb" in
+    Payment_address.of_b58check_exn (`Base58 "3EAbU8GtLymWvcqebCZUwYuZV1QcHsxqzb") in
   let script = Payment_address.to_script payment_addr in
   assert (Script.is_valid script) ;
   let output = Output.create ~value:10_000L ~script in
@@ -133,8 +133,8 @@ let test_basic ctx =
       ~f:(Payment_address.of_point ~version:Testnet_P2KH) in
   let _script = Script.create_multisig ~threshold:2 pubkeys in
   let addrs_encoded = ListLabels.map addrs ~f:Payment_address.to_b58check in
-  ListLabels.iter addrs_encoded ~f:begin fun addr_str ->
-    match Payment_address.of_b58check addr_str with
+  ListLabels.iter addrs_encoded ~f:begin fun ((`Base58 addr_str) as addr) ->
+    match Payment_address.of_b58check addr with
     | Some _ -> print_endline addr_str
     | None -> raise Exit
   end

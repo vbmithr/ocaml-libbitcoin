@@ -18,30 +18,28 @@ type t = Payment_address of unit ptr
 type version =
   | P2KH
   | P2SH
-  | WIF
-  | BIP32_Pubkey
-  | BIP32_Privkey
-
   | Testnet_P2KH
   | Testnet_P2SH
-  | Testnet_WIF
-  | Testnet_BIP32_Pubkey
-  | Testnet_BIP32_Privkey
 
 let int_of_version = function
   | P2KH -> 0x00
   | P2SH -> 0x05
-  | WIF -> 0x80
-  | BIP32_Pubkey -> 0x0488B21E
-  | BIP32_Privkey -> 0x0488ADE4
-
   | Testnet_P2KH -> 0x6F
   | Testnet_P2SH -> 0xC4
-  | Testnet_WIF -> 0xEF
-  | Testnet_BIP32_Pubkey -> 0x043587CF
-  | Testnet_BIP32_Privkey -> 0x04358394
 
-let of_b58check str =
+let version_of_int = function
+  | 0x00 -> P2KH
+  | 0x05 -> P2SH
+  | 0x6F -> Testnet_P2KH
+  | 0xC4 -> Testnet_P2SH
+  | _ -> invalid_arg "Payment_address.version_of_int"
+
+let version (Payment_address addr_ptr) =
+  let version = foreign "bc_payment_address__version"
+      (ptr void @-> returning int) in
+  version_of_int (version addr_ptr)
+
+let of_b58check (`Base58 str) =
   let ret = of_string str in
   if ptr_compare ret null = 0 then None
   else begin
@@ -73,7 +71,7 @@ let of_script ?(version=P2KH) (Script.Script script) =
 let to_b58check (Payment_address t) =
   let encode = foreign "bc_payment_address__encoded"
       ((ptr void) @-> returning (ptr void)) in
-  Data.String.(to_string (of_ptr (encode t)))
+  `Base58 Data.String.(to_string (of_ptr (encode t)))
 
 let to_hash (Payment_address t) =
   let hash = foreign "bc_payment_address__hash"
@@ -83,13 +81,18 @@ let to_hash (Payment_address t) =
 let to_script addr =
   let hash = to_hash addr in
   let `Hex hash_hex = Hash.short_hash_to_hex hash in
-  match Script.of_mnemonic
-          (Printf.sprintf "dup hash160 [%s] equalverify checksig" hash_hex) with
+  let mnemonic = match version addr with
+    | P2KH | Testnet_P2KH ->
+      Printf.sprintf "dup hash160 [%s] equalverify checksig" hash_hex
+    | P2SH | Testnet_P2SH ->
+      Printf.sprintf "hash160 [%s] equal" hash_hex in
+  match Script.of_mnemonic mnemonic with
   | Some script -> script
-  | None -> failwith "create_p2kh: internal"
+  | None -> failwith "Payment_address.to_script: internal"
 
 let pp ppf addr =
-  Format.fprintf ppf "%s" (to_b58check addr)
+  let `Base58 addr_str = to_b58check addr in
+  Format.fprintf ppf "%s" addr_str
 
 let show addr =
   Format.asprintf "%a" pp addr
