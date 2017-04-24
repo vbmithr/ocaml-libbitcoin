@@ -33,6 +33,15 @@ let of_hex_exn hex =
   | None -> invalid_arg "Ec_public.of_hex_exn"
   | Some t -> t
 
-let encode (Ec_public t) =
-  `Hex Data.String.(to_string (of_ptr (encode t)))
+let encode (Ec_public ec_public_ptr) =
+  `Hex Data.String.(to_string (of_ptr (encode ec_public_ptr)))
 
+let to_bytes (Ec_public ec_public_ptr) =
+  let to_data = foreign "bc_ec_public__to_data"
+      (ptr void @-> ptr void @-> returning bool) in
+  let open Data.Chunk in
+  let (Chunk chunk_ptr as chunk) =
+    of_bytes (String.make 32 '\x00') in
+  match to_data ec_public_ptr chunk_ptr with
+  | true -> to_bytes chunk
+  | false -> failwith "Ec_public.to_bytes: internal error"

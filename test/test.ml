@@ -5,6 +5,18 @@ open OUnit2
 let gen_32bytes () =
   Sodium.Random.Bytes.generate 32
 
+let test_payment_address ctx =
+  let addr_b58 = `Base58 "mjVrE2kfz42sLR5gFcfvG6PwbAjhpmsKnn" in
+  let addr = Payment_address.of_b58check_exn addr_b58 in
+  let addr_b58' = Payment_address.to_b58check addr in
+  assert_equal addr_b58 addr_b58' ;
+  let `Hex addr_hex = Payment_address.to_hex addr in
+  assert_equal 40 (String.length addr_hex) ;
+  let { Base58.Versioned.version ; payload } =
+    Base58.Versioned.of_base58_exn addr_b58 in
+  assert_equal ~printer:string_of_int 20 (String.length payload) ;
+  assert_equal Base58.Versioned.Testnet_P2PKH version
+
 let test_wif ctx =
   assert_equal None
     (Ec_private.of_wif "fc2bedd07294f44a5d42f716bb1329d23e8353a638058b2ba71bafccce7ae5f2") ;
@@ -72,12 +84,10 @@ let test_transaction ctx =
     | Some script -> script
     | None -> invalid_arg "prev_out_script" in
   assert (Script.is_valid prev_out_script) ;
-  let Sign.Endorsement endorsement =
-    match Sign.endorse ~tx ~index:0 ~prev_out_script ~secret () with
-  | Some endorsement -> endorsement
-  | None -> invalid_arg "Sign.endorse" in
-  let script = Script.endorsement endorsement pk in
-  assert (Script.is_valid script) ;
+  let endorsement =
+    Sign.endorse_exn ~tx ~index:0 ~prev_out_script ~secret () in
+  let scriptSig = Script.P2PKH.scriptSig endorsement pk in
+  assert (Script.is_valid scriptSig) ;
   let new_inputs =
     ListLabels.map tx.inputs.inputs ~f:(fun i -> Input.set_script i script; i) in
   set_inputs tx new_inputs ;
@@ -130,8 +140,8 @@ let test_basic ctx =
     print_endline pk_hex
   end ;
   let addrs = ListLabels.map pubkeys
-      ~f:(Payment_address.of_point ~version:Testnet_P2KH) in
-  let _script = Script.create_multisig ~threshold:2 pubkeys in
+      ~f:(Payment_address.of_point ~version:Testnet_P2PKH) in
+  let _script = Script.P2SH_multisig.scriptRedeem ~threshold:2 pubkeys in
   let addrs_encoded = ListLabels.map addrs ~f:Payment_address.to_b58check in
   ListLabels.iter addrs_encoded ~f:begin fun ((`Base58 addr_str) as addr) ->
     match Payment_address.of_b58check addr with
@@ -145,6 +155,7 @@ let suite =
     "test_transaction" >:: test_transaction ;
     "test_mnemonic" >:: test_mnemonic ;
     "test_wif" >:: test_wif ;
+    "test_payment_address" >:: test_payment_address ;
   ]
 
 let () = run_test_tt_main suite

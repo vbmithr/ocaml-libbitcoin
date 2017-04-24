@@ -122,13 +122,19 @@ module Sign : sig
     | Single
     | AnyoneCanPay
 
-  type endorsement = private Endorsement of Data.Chunk.t
-
   val endorse :
     ?hashtype:hashtype list ->
     tx:t ->
     index:int ->
     prev_out_script:Script.t ->
     secret:Ec_private.Ec_secret.t ->
-    unit -> endorsement option
+    unit -> string option
+
+  val endorse_exn :
+    ?hashtype:hashtype list ->
+    tx:t ->
+    index:int ->
+    prev_out_script:Script.t ->
+    secret:Ec_private.Ec_secret.t ->
+    unit -> string
 end

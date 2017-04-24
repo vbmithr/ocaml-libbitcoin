@@ -32,6 +32,42 @@ let int_of_rule_forks =
     a lor (int_of_rule_fork rf)
   end
 
+module Script = struct
+  module Opcode = struct
+    type t =
+      | Const of int
+      | Dup
+      | Drop
+      | Hash160
+      | Data of string
+      | Equal
+      | Equalverify
+      | Checksig
+      | Checkmultisig
+
+    let to_string = function
+      | Const v ->
+        if v > 0 && v < 17 then string_of_int v
+        else invalid_arg "Opcode.to_string: Const must belong to [1; 16]"
+      | Dup -> "dup"
+      | Drop -> "drop"
+      | Hash160 -> "hash160"
+      | Data data ->
+        let `Hex data_hex = Hex.of_string data in "[" ^ data_hex ^ "]"
+      | Equal -> "equal"
+      | Equalverify -> "equalverify"
+      | Checksig -> "checksig"
+      | Checkmultisig -> "checkmultisig"
+
+    let pp ppf t = Format.fprintf ppf "%s" (to_string t)
+  end
+
+  type t = Opcode.t list
+  let pp ppf opcodes =
+    let open Format in
+    pp_print_list ~pp_sep:(fun fmt () -> fprintf fmt " ") Opcode.pp ppf opcodes
+end
+
 type t = Script of unit ptr
 
 let destroy = foreign "bc_destroy_script"
@@ -39,12 +75,6 @@ let destroy = foreign "bc_destroy_script"
 
 let create = foreign "bc_create_script"
     (void @-> returning (ptr void))
-
-let create_data = foreign "bc_create_script_Data"
-    ((ptr void) @-> bool @-> returning (ptr void))
-
-let from_string = foreign "bc_script__from_string"
-    ((ptr void) @-> string @-> returning bool)
 
 let of_ptr_nodestroy ptr = Script ptr
 let of_ptr ptr =
@@ -57,6 +87,8 @@ let invalid () =
   Script ret
 
 let of_chunk ?(prefix=false) (Data.Chunk.Chunk chunk) =
+  let create_data = foreign "bc_create_script_Data"
+      (ptr void @-> bool @-> returning (ptr void)) in
   let script = create_data chunk prefix in
   if ptr_compare script null = 0 then None
   else begin
@@ -77,51 +109,30 @@ let to_string ?(active_forks=[]) (Script script) =
   let str = to_string script active_forks in
   Data.String.(of_ptr str |> to_string)
 
+let to_bytes ?(prefix=false) (Script script) =
+  let to_data = foreign "bc_script__to_data"
+      (ptr void @-> bool @-> returning (ptr void)) in
+  let ret = to_data script prefix in
+  Data.Chunk.(to_bytes (of_ptr ret))
+
 let pp ppf t =
   Format.fprintf ppf "%s" (to_string t)
 
 let show t = to_string t
 
 let of_mnemonic str =
+  let from_string = foreign "bc_script__from_string"
+      (ptr void @-> string @-> returning bool) in
   let script = create () in
   Gc.finalise destroy script ;
   match from_string script str with
   | false -> None
   | true -> Some (Script script)
 
-let add_data ?(append_space=true) buf (`Hex data) =
-  Buffer.add_char buf '[';
-  Buffer.add_string buf data;
-  Buffer.add_char buf ']';
-  if append_space then Buffer.add_char buf ' '
-
-let create_multisig ?data ~threshold addrs =
-  let nb_addrs = List.length addrs in
-  let addrs = ListLabels.map addrs ~f:Ec_public.encode in
-  if threshold < 1 || threshold > nb_addrs then
-    invalid_arg "create_multisig";
-  let buf = Buffer.create 128 in
-  begin match data with
-  | None -> ()
-  | Some data -> add_data buf (Hex.of_string data)
-  end ;
-  Buffer.add_string buf (string_of_int threshold) ;
-  Buffer.add_char buf ' ' ;
-  ListLabels.iter addrs ~f:(add_data buf) ;
-  Buffer.add_string buf (string_of_int nb_addrs) ;
-  Buffer.add_char buf ' ' ;
-  Buffer.add_string buf "checkmultisig" ;
-  match of_mnemonic (Buffer.contents buf) with
+let of_script opcodes =
+  match of_mnemonic (Format.asprintf "%a" Script.pp opcodes) with
+  | None -> invalid_arg "Script.of_script"
   | Some script -> script
-  | None -> failwith "create_multisig: internal"
-
-let endorsement endorsement pk =
-  let `Hex endorsement_hex = Data.Chunk.to_hex endorsement in
-  let `Hex pk_hex = Ec_public.encode pk in
-  let mnemonic = Printf.sprintf "[%s] [%s]" endorsement_hex pk_hex in
-  match of_mnemonic mnemonic with
-  | Some script -> script
-  | None -> failwith "endorsement: internal"
 
 let is_valid (Script t) =
   let is_valid =
@@ -129,3 +140,39 @@ let is_valid (Script t) =
   let is_valid_operations =
     foreign "bc_script__is_valid_operations" ((ptr void) @-> returning bool) in
   is_valid t && is_valid_operations t
+
+module P2PKH = struct
+  let scriptPubKey addr =
+    let { Base58.Versioned.payload } = Base58.Versioned.of_base58_exn addr in
+    of_script
+      Script.Opcode.[Dup ; Hash160 ; Data payload ; Equalverify ; Checksig]
+
+  let scriptSig endorsement pk =
+    let pk = Ec_public.to_bytes pk in
+    of_script Script.Opcode.[Data endorsement ; Data pk]
+end
+
+module P2SH_multisig = struct
+  let scriptPubKey addr =
+    let { Base58.Versioned.payload } = Base58.Versioned.of_base58_exn addr in
+    of_script Script.Opcode.[Hash160 ; Data payload ; Equal]
+
+  let scriptRedeem ?append_script ~threshold pks =
+    let nb_pks = List.length pks in
+    let open Script.Opcode in
+    let addrs = ListLabels.rev_map pks ~f:begin fun pk ->
+        Data (Ec_public.to_bytes pk)
+      end in
+    let script = List.rev_append addrs (Const nb_pks :: [Checkmultisig]) in
+    let script = Const threshold :: script in
+    match append_script with
+    | None -> script
+    | Some script' -> script' @ script
+
+  let scriptSig ~endorsements ~scriptRedeem =
+    let open Script.Opcode in
+    let scriptRedeem_bytes = to_bytes (of_script scriptRedeem) in
+    let script = [Data scriptRedeem_bytes] in
+    of_script
+      (Const 0 :: (ListLabels.map endorsements ~f:(fun e -> Data e)) @ script)
+end

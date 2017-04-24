@@ -485,8 +485,6 @@ module Sign = struct
       acc lor ht
     end
 
-  type endorsement = Endorsement of Data.Chunk.t
-
   let create_endorsement = foreign "bc_script__create_endorsement"
       ((ptr void) @-> (ptr void) @-> (ptr void) @->
        (ptr void) @-> int @-> int @-> returning bool)
@@ -502,6 +500,18 @@ module Sign = struct
     let chunk_ptr = match chunk with Data.Chunk.Chunk ptr -> ptr in
     match create_endorsement chunk_ptr secret script
             transaction_ptr index (int_of_hashtypes hashtype) with
-    | true -> Some (Endorsement chunk)
+    | true ->
+      Some (Data.Chunk.to_bytes chunk)
     | false -> None
+
+  let endorse_exn
+      ?hashtype
+      ~tx
+      ~index
+      ~prev_out_script
+      ~secret
+      () =
+    match endorse ?hashtype ~tx ~index ~prev_out_script ~secret () with
+    | None -> invalid_arg "Transaction.Sign.endorse_exn"
+    | Some endorsement -> endorsement
 end
