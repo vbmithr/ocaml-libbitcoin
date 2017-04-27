@@ -2,21 +2,14 @@ open Ctypes
 open Foreign
 
 module Point : sig
-  type t = private {
-    mutable hash : Hash.Hash32.t ;
-    mutable index : int ;
-    point_ptr : unit ptr ;
-  }
+  type t
 
   val show : t -> string
   val pp : Format.formatter -> t -> unit
 end
 
 module Output_point : sig
-  type t = private {
-    point : Point.t ;
-    output_point_ptr : unit ptr ;
-  }
+  type t
 
   val show : t -> string
   val pp : Format.formatter -> t -> unit
@@ -24,16 +17,12 @@ module Output_point : sig
 end
 
 module Input : sig
-  type t = private {
-    sequence: Int32.t ;
-    prev_out : Output_point.t ;
-    mutable script : Script.t ;
-    input_ptr : unit ptr ;
-  }
+  type t
   type input = t
 
   val show : t -> string
   val pp : Format.formatter -> t -> unit
+  val compare : t -> t -> int
 
   val create :
     ?sequence:Int32.t ->
@@ -45,39 +34,25 @@ module Input : sig
   val set_script : t -> Script.t -> unit
 
   val is_valid : t -> bool
-
-  module List : sig
-    type t = private {
-      inputs : input list ;
-      input_list_ptr : unit ptr ;
-    }
-  end
 end
 
 module Output : sig
-  type t = private {
-    value : Int64.t ;
-    script : Script.t ;
-    output_ptr : unit ptr ;
-  }
+  type t
   type output = t
 
   val show : t -> string
   val pp : Format.formatter -> t -> unit
+  val compare : t -> t -> int
 
   val create : value:Int64.t -> script:Script.t -> t
 
+  val get_value : t -> Int64.t
+  val get_script : t -> Script.t
+
+  val set_value : t -> Int64.t -> unit
+  val set_script : t -> Script.t -> unit
+
   val is_valid : t -> bool
-
-  module List : sig
-    type t = private {
-      outputs : output list ;
-      output_list_ptr : unit ptr ;
-    }
-
-    val show : t -> string
-    val pp : Format.formatter -> t -> unit
-  end
 end
 
 type locktime =
@@ -85,17 +60,13 @@ type locktime =
   | Block of int
   | Time of Ptime.t
 
-type t = private {
-  hash : Hash.Hash32.t ;
-  version : int ;
-  locktime : locktime ;
-  mutable inputs : Input.List.t ;
-  mutable outputs : Output.List.t ;
-  transaction_ptr : unit ptr ;
-}
+type t
 
 val pp : Format.formatter -> t -> unit
 val show : t -> string
+
+val get_inputs : t -> Input.t list
+val get_outputs : t -> Output.t list
 
 val set_inputs : t -> Input.t list -> unit
 val set_outputs : t -> Output.t list -> unit

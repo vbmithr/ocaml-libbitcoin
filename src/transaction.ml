@@ -2,17 +2,17 @@ open Ctypes
 open Foreign
 
 module Point : sig
-  type t = private {
-    mutable hash : Hash.Hash32.t ;
-    mutable index : int ;
-    point_ptr : unit ptr ;
-  }
+  type t
 
   val show : t -> string
   val pp : Format.formatter -> t -> unit
 
   val of_ptr : unit ptr -> t
   val create : hash:Hash.Hash32.t -> index:int -> t
+
+  val get_ptr : t -> unit ptr
+  val get_hash : t -> Hash.Hash32.t
+  val get_index : t -> int
   val set_hash : t -> Hash.Hash32.t -> unit
   val set_index : t -> int -> unit
 end = struct
@@ -47,6 +47,10 @@ end = struct
     let point_ptr = create h index in
     Gc.finalise destroy point_ptr ;
     { hash ; index ; point_ptr }
+
+  let get_ptr { point_ptr } = point_ptr
+  let get_hash { hash } = hash
+  let get_index { index } = index
 
   let set_hash t hash =
     let set_hash = foreign "bc_point__set_hash"
@@ -96,7 +100,7 @@ end = struct
   let of_point point =
     let create = foreign "bc_create_output_point_Point"
         (ptr void @-> returning (ptr void)) in
-    let output_point_ptr = create point.Point.point_ptr in
+    let output_point_ptr = create (Point.get_ptr point) in
     Gc.finalise destroy output_point_ptr ;
     {
       point = point ;
@@ -107,7 +111,38 @@ end = struct
     of_point (Point.create ~hash ~index)
 end
 
-module Input = struct
+module Input : sig
+  type t
+  type input = t
+
+  val show : t -> string
+  val pp : Format.formatter -> t -> unit
+  val compare : t -> t -> int
+
+  val create :
+    ?sequence:Int32.t ->
+    prev_out_hash:Hash.Hash32.t ->
+    prev_out_index:int ->
+    script:Script.t ->
+    unit -> t
+
+  val set_script : t -> Script.t -> unit
+
+  val is_valid : t -> bool
+
+  module List : sig
+    type t = private {
+      inputs : input list ;
+      input_list_ptr : unit ptr ;
+    }
+
+    val show : t -> string
+    val pp : Format.formatter -> t -> unit
+
+    val of_ptr : unit ptr -> t
+    val of_list : input list -> t
+  end
+end = struct
 
   let create = foreign "bc_create_input_Values"
       (ptr void @-> ptr void @-> int32_t @-> returning (ptr void))
@@ -140,6 +175,8 @@ module Input = struct
   let show t =
     Format.asprintf "%a" pp t
 
+  let compare t t' = ptr_compare t.input_ptr t'.input_ptr
+
   let of_ptr input_ptr =
     let sequence = get_sequence input_ptr in
     let prev_out = Output_point.of_ptr (get_previous_output input_ptr) in
@@ -165,18 +202,7 @@ module Input = struct
   let is_valid { input_ptr } =
     is_valid input_ptr
 
-  module List : sig
-    type t = private {
-      inputs : input list ;
-      input_list_ptr : unit ptr ;
-    }
-
-    val show : t -> string
-    val pp : Format.formatter -> t -> unit
-
-    val of_ptr : unit ptr -> t
-    val of_list : input list -> t
-  end = struct
+  module List = struct
 
     let create = foreign
         "bc_create_input_list"
@@ -223,8 +249,37 @@ module Input = struct
   end
 end
 
-module Output = struct
+module Output : sig
+  type t
+  type output = t
 
+  val show : t -> string
+  val pp : Format.formatter -> t -> unit
+  val compare : t -> t -> int
+
+  val create : value:Int64.t -> script:Script.t -> t
+
+  val get_value : t -> Int64.t
+  val get_script : t -> Script.t
+
+  val set_value : t -> Int64.t -> unit
+  val set_script : t -> Script.t -> unit
+
+  val is_valid : t -> bool
+
+  module List : sig
+    type t = private {
+      outputs : output list ;
+      output_list_ptr : unit ptr ;
+    }
+
+    val show : t -> string
+    val pp : Format.formatter -> t -> unit
+
+    val of_ptr : unit ptr -> t
+    val of_list : output list -> t
+  end
+end = struct
   let create = foreign
       "bc_create_output_Value"
       (int64_t @-> ptr void @-> returning (ptr void))
@@ -235,10 +290,13 @@ module Output = struct
       (ptr void @-> returning bool)
 
   type t = {
-    value : Int64.t ;
-    script : Script.t ;
+    mutable value : Int64.t ;
+    mutable script : Script.t ;
     output_ptr : unit ptr ;
   }
+
+  let compare t t' =
+    ptr_compare t.output_ptr t'.output_ptr
 
   type output = t
 
@@ -263,21 +321,25 @@ module Output = struct
     Gc.finalise destroy output_ptr ;
     { value ; script ; output_ptr }
 
+  let get_value { value } = value
+  let get_script { script } = script
+
+  let set_value t value =
+    let set_value = foreign "bc_output__set_value"
+        (ptr void @-> int64_t @-> returning void) in
+    set_value t.output_ptr value ;
+    t.value <- value
+
+  let set_script t (Script.Script script_ptr as script) =
+    let set_script = foreign "bc_output__set_script"
+        (ptr void @-> ptr void @-> returning void) in
+    set_script t.output_ptr script_ptr ;
+    t.script <- script
+
   let is_valid { output_ptr } =
     is_valid output_ptr
 
-  module List : sig
-    type t = private {
-      outputs : output list ;
-      output_list_ptr : unit ptr ;
-    }
-
-    val show : t -> string
-    val pp : Format.formatter -> t -> unit
-
-    val of_ptr : unit ptr -> t
-    val of_list : output list -> t
-  end = struct
+  module List = struct
     let create = foreign "bc_create_output_list"
         (void @-> returning (ptr void))
     let destroy = foreign "bc_destroy_output_list"
@@ -412,11 +474,8 @@ let create ?(version=1) ?(locktime=Immediate) inputs outputs =
   let hash = Hash.Hash32.of_bytes_exn (Hash.hash_to_bytes hash) in
   { hash ; version ; locktime ; inputs ; outputs ; transaction_ptr }
 
-(* let get_inputs (Transaction t) = *)
-(*   Input.List.(to_list (of_ptr_nodestroy (get_input t))) *)
-
-(* let get_outputs (Transaction t) = *)
-(*   Output.List.(to_list (of_ptr_nodestroy (get_output t))) *)
+let get_inputs { inputs } = inputs.inputs
+let get_outputs { outputs } = outputs.outputs
 
 let set_inputs t inputs =
   let inputs = Input.List.of_list inputs in

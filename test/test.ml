@@ -5,6 +5,20 @@ open OUnit2
 let gen_32bytes () =
   Sodium.Random.Bytes.generate 32
 
+let test_output_list ctx =
+  let open Transaction in
+  let script = Script.invalid () in
+  let o1 = Output.create ~script ~value:1L in
+  let o2 = Output.create ~script ~value:2L in
+  let tx = Transaction.create [] [o1 ; o2] in
+  Output.set_value o1 3L ;
+  Printf.printf "%s\n" (Transaction.show tx) ;
+  let `Hex tx_hex = Transaction.to_hex tx in
+  Printf.printf "%s\n" tx_hex ;
+  match Transaction.get_outputs tx with
+  | [o1 ; o2] -> assert_equal 3L (Output.get_value o1)
+  | _ -> failwith "test_output_list"
+
 let test_payment_address ctx =
   let addr_b58 = `Base58 "mjVrE2kfz42sLR5gFcfvG6PwbAjhpmsKnn" in
   let addr = Payment_address.of_b58check_exn addr_b58 in
@@ -77,6 +91,26 @@ let test_transaction ctx =
   let output = Output.create ~value:10_000L ~script in
   assert (Output.is_valid output) ;
   let tx = create [input] [output] in
+
+  begin match Transaction.get_inputs tx with
+  | [input'] ->
+    assert_equal 0 (Transaction.Input.compare input input')
+  | _ -> failwith "Transaction.get_inputs"
+  end ;
+
+  begin match Transaction.get_outputs tx with
+  | [output'] ->
+    assert_equal 0 (Transaction.Output.compare output output')
+  | _ -> failwith "Transaction.get_outputs"
+  end ;
+
+  Transaction.Output.set_value output 10_001L ;
+  begin match Transaction.get_outputs tx with
+    | [o] ->
+      assert_equal 10_001L (Transaction.Output.get_value o)
+    | _ -> failwith "Transaction.get_outputs"
+  end ;
+
   Format.printf "%a@." Transaction.pp tx ;
   let `Hex tx_hex = Transaction.to_hex tx in
   Printf.printf "%s\n" tx_hex ;
@@ -89,7 +123,7 @@ let test_transaction ctx =
   let scriptSig = Script.P2PKH.scriptSig endorsement pk in
   assert (Script.is_valid scriptSig) ;
   let new_inputs =
-    ListLabels.map tx.inputs.inputs ~f:(fun i -> Input.set_script i script; i) in
+    ListLabels.map (get_inputs tx) ~f:(fun i -> Input.set_script i script; i) in
   set_inputs tx new_inputs ;
   begin match Transaction.check tx with
     | Ok () -> ()
@@ -156,6 +190,7 @@ let suite =
     "test_mnemonic" >:: test_mnemonic ;
     "test_wif" >:: test_wif ;
     "test_payment_address" >:: test_payment_address ;
+    "test_output_list" >:: test_output_list ;
   ]
 
 let () = run_test_tt_main suite
