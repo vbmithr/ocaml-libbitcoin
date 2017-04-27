@@ -57,7 +57,7 @@ end
 module Output : sig
   type t = private {
     value : Int64.t ;
-    script : Script. t ;
+    script : Script.t ;
     output_ptr : unit ptr ;
   }
   type output = t
@@ -107,6 +107,7 @@ val create :
   Output.t list -> t
 
 val is_valid : t -> bool
+val serialized_size : t -> int
 val check : t -> (unit, string) result
 
 val of_bytes : ?wire:bool -> string -> t option

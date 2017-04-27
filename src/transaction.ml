@@ -459,6 +459,11 @@ let to_hex ?wire t =
 
 let is_valid { transaction_ptr } = is_valid transaction_ptr
 
+let serialized_size { transaction_ptr } =
+  let serialized_size = foreign "bc_transaction__serialized_size"
+      (ptr void @-> returning int) in
+  serialized_size transaction_ptr
+
 let check { transaction_ptr } =
   let ret = check transaction_ptr in
   let error = Error.of_ptr ret in
