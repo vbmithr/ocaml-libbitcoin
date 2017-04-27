@@ -16,6 +16,7 @@ type rule_fork =
 module Script : sig
   module Opcode : sig
     type t =
+      | Zero
       | Const of int
       | Dup
       | Drop

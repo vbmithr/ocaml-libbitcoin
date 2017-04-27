@@ -35,6 +35,7 @@ let int_of_rule_forks =
 module Script = struct
   module Opcode = struct
     type t =
+      | Zero
       | Const of int
       | Dup
       | Drop
@@ -46,6 +47,7 @@ module Script = struct
       | Checkmultisig
 
     let to_string = function
+      | Zero -> "zero"
       | Const v ->
         if v > 0 && v < 17 then string_of_int v
         else invalid_arg "Opcode.to_string: Const must belong to [1; 16]"
@@ -174,5 +176,5 @@ module P2SH_multisig = struct
     let scriptRedeem_bytes = to_bytes (of_script scriptRedeem) in
     let script = [Data scriptRedeem_bytes] in
     of_script
-      (Const 0 :: (ListLabels.map endorsements ~f:(fun e -> Data e)) @ script)
+      (Zero :: (ListLabels.map endorsements ~f:(fun e -> Data e)) @ script)
 end
