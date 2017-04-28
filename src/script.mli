@@ -58,12 +58,12 @@ val to_bytes : ?prefix:bool -> t -> string
 val is_valid : t -> bool
 
 module P2PKH : sig
-  val scriptPubKey : Base58.t -> t
+  val scriptPubKey : Base58.Bitcoin.t -> t
   val scriptSig : string -> Ec_public.t -> t
 end
 
 module P2SH_multisig : sig
-  val scriptPubKey : Base58.t -> t
+  val scriptPubKey : Base58.Bitcoin.t -> t
 
   val scriptRedeem :
     ?append_script:Script.t ->

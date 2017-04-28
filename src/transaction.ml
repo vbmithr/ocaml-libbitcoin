@@ -126,6 +126,7 @@ module Input : sig
     script:Script.t ->
     unit -> t
 
+  val get_script : t -> Script.t
   val set_script : t -> Script.t -> unit
 
   val is_valid : t -> bool
@@ -194,6 +195,8 @@ end = struct
       create prev_out.output_point_ptr script_ptr sequence in
     Gc.finalise destroy input_ptr ;
     { sequence ; prev_out ; script ; input_ptr }
+
+  let get_script { script } = script
 
   let set_script t (Script.Script script_ptr as script) =
     set_script t.input_ptr script_ptr ;

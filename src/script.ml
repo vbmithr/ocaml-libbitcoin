@@ -144,8 +144,7 @@ let is_valid (Script t) =
   is_valid t && is_valid_operations t
 
 module P2PKH = struct
-  let scriptPubKey addr =
-    let { Base58.Versioned.payload } = Base58.Versioned.of_base58_exn addr in
+  let scriptPubKey { Base58.Bitcoin.payload } =
     of_script
       Script.Opcode.[Dup ; Hash160 ; Data payload ; Equalverify ; Checksig]
 
@@ -155,8 +154,7 @@ module P2PKH = struct
 end
 
 module P2SH_multisig = struct
-  let scriptPubKey addr =
-    let { Base58.Versioned.payload } = Base58.Versioned.of_base58_exn addr in
+  let scriptPubKey { Base58.Bitcoin.payload } =
     of_script Script.Opcode.[Hash160 ; Data payload ; Equal]
 
   let scriptRedeem ?append_script ~threshold pks =

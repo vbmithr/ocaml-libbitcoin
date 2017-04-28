@@ -20,16 +20,15 @@ let test_output_list ctx =
   | _ -> failwith "test_output_list"
 
 let test_payment_address ctx =
-  let addr_b58 = `Base58 "mjVrE2kfz42sLR5gFcfvG6PwbAjhpmsKnn" in
+  let addr_b58 = Base58.Bitcoin.of_string_exn "mjVrE2kfz42sLR5gFcfvG6PwbAjhpmsKnn" in
   let addr = Payment_address.of_b58check_exn addr_b58 in
   let addr_b58' = Payment_address.to_b58check addr in
   assert_equal addr_b58 addr_b58' ;
-  let `Hex addr_hex = Payment_address.to_hex addr in
-  assert_equal 40 (String.length addr_hex) ;
-  let { Base58.Versioned.version ; payload } =
-    Base58.Versioned.of_base58_exn addr_b58 in
+  (* let `Hex addr_hex = Payment_address.to_hex addr in *)
+  (* assert_equal 40 (String.length addr_hex) ; *)
+  let { Base58.Bitcoin.version ; payload } = addr_b58 in
   assert_equal ~printer:string_of_int 20 (String.length payload) ;
-  assert_equal Base58.Versioned.Testnet_P2PKH version
+  assert_equal Base58.Bitcoin.Testnet_P2PKH version
 
 let test_wif ctx =
   assert_equal None
@@ -85,7 +84,8 @@ let test_transaction ctx =
     Input.create ~prev_out_hash:tx ~prev_out_index:1 ~script:(Script.invalid ()) () in
   assert (Input.is_valid input) ;
   let payment_addr =
-    Payment_address.of_b58check_exn (`Base58 "3EAbU8GtLymWvcqebCZUwYuZV1QcHsxqzb") in
+    Payment_address.of_b58check_exn
+      (Base58.Bitcoin.of_string_exn "3EAbU8GtLymWvcqebCZUwYuZV1QcHsxqzb") in
   let script = Payment_address.to_script payment_addr in
   assert (Script.is_valid script) ;
   let output = Output.create ~value:10_000L ~script in
@@ -177,9 +177,9 @@ let test_basic ctx =
       ~f:(Payment_address.of_point ~version:Testnet_P2PKH) in
   let _script = Script.P2SH_multisig.scriptRedeem ~threshold:2 pubkeys in
   let addrs_encoded = ListLabels.map addrs ~f:Payment_address.to_b58check in
-  ListLabels.iter addrs_encoded ~f:begin fun ((`Base58 addr_str) as addr) ->
+  ListLabels.iter addrs_encoded ~f:begin fun addr ->
     match Payment_address.of_b58check addr with
-    | Some _ -> print_endline addr_str
+    | Some _ -> print_endline (Base58.Bitcoin.to_string addr)
     | None -> raise Exit
   end
 

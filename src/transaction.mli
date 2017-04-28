@@ -31,6 +31,7 @@ module Input : sig
     script:Script.t ->
     unit -> t
 
+  val get_script : t -> Script.t
   val set_script : t -> Script.t -> unit
 
   val is_valid : t -> bool
