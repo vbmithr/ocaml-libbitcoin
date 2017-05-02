@@ -14,7 +14,7 @@ let test_script ctx =
   let script = of_mnemonic mnemonic in
   assert_equal true (script <> None) ;
   match script with
-  | None -> assert false
+  | None -> assert_bool "Script.of_mnemonic" false
   | Some script -> begin
       let opcodes = Script.Opcode.[Data "\xaa\xaa" ; Data "\xbb\xbb"] in
       let script' = of_script opcodes in
@@ -100,14 +100,22 @@ let test_transaction ctx =
   let tx = Hash.Hash32.of_hex_exn txid in
   let input =
     Input.create ~prev_out_hash:tx ~prev_out_index:1 ~script:(Script.invalid ()) () in
-  assert (Input.is_valid input) ;
+  assert_bool "input is valid" (Input.is_valid input) ;
+  let input_bytes = Input.to_bytes input in
+  begin match Input.of_bytes input_bytes with
+  | None -> assert_bool "Input.of_bytes" false
+  | Some input ->
+    assert_bool "input is valid" (Input.is_valid input) ;
+    let input_bytes' = Input.to_bytes input in
+    assert_equal ~printer:(fun x -> x) input_bytes input_bytes'
+  end ;
   let payment_addr =
     Payment_address.of_b58check_exn
       (Base58.Bitcoin.of_string_exn "3EAbU8GtLymWvcqebCZUwYuZV1QcHsxqzb") in
   let script = Payment_address.to_script payment_addr in
-  assert (Script.is_valid script) ;
+  assert_bool "Script.is_valid" (Script.is_valid script) ;
   let output = Output.create ~value:10_000L ~script in
-  assert (Output.is_valid output) ;
+  assert_bool "Output.is_valid" (Output.is_valid output) ;
   let tx = create [input] [output] in
 
   begin match Transaction.get_inputs tx with
@@ -135,11 +143,11 @@ let test_transaction ctx =
   let prev_out_script = match Script.of_hex scriptPubKey with
     | Some script -> script
     | None -> invalid_arg "prev_out_script" in
-  assert (Script.is_valid prev_out_script) ;
+  assert_bool "Script.is_valid" (Script.is_valid prev_out_script) ;
   let endorsement =
     Sign.endorse_exn ~tx ~index:0 ~prev_out_script ~secret () in
   let scriptSig = Script.P2PKH.scriptSig endorsement pk in
-  assert (Script.is_valid scriptSig) ;
+  assert_bool "Script.is_valid" (Script.is_valid scriptSig) ;
   let new_inputs =
     ListLabels.map (get_inputs tx) ~f:(fun i -> Input.set_script i script; i) in
   set_inputs tx new_inputs ;
@@ -169,7 +177,7 @@ let test_transaction ctx =
     | Ok () -> ()
     | Error msg -> Printf.printf "tx_chunk_parsed: %s\n" msg ;
   end ;
-  assert (Transaction.is_valid tx_chunk_parsed_nowire) ;
+  assert_bool "Transaction.is_valid" (Transaction.is_valid tx_chunk_parsed_nowire) ;
   begin match Transaction.check tx_chunk_parsed_nowire with
     | Ok () -> ()
     | Error msg -> Printf.printf "tx_chunk_parsed_nowire: %s\n" msg ;

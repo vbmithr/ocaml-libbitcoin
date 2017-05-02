@@ -98,11 +98,22 @@ let of_chunk ?(prefix=false) (Data.Chunk.Chunk chunk) =
     Some (Script script)
   end
 
-let of_bytes ?(prefix=false) bytes =
-  of_chunk (Data.Chunk.of_bytes bytes)
+let of_chunk_exn ?prefix chunk =
+  match of_chunk ?prefix chunk with
+  | None -> invalid_arg "Script.of_chunk_exn"
+  | Some t -> t
+
+let of_bytes ?prefix bytes =
+  of_chunk ?prefix (Data.Chunk.of_bytes bytes)
+
+let of_bytes_exn ?prefix bytes =
+  of_chunk_exn ?prefix (Data.Chunk.of_bytes bytes)
 
 let of_hex ?prefix hex =
   of_bytes ?prefix (Hex.to_string hex)
+
+let of_hex_exn ?prefix hex =
+  of_bytes_exn ?prefix (Hex.to_string hex)
 
 let to_string ?(active_forks=[]) (Script script) =
   let to_string = foreign "bc_script__to_string"
@@ -117,6 +128,9 @@ let to_bytes ?(prefix=false) (Script script) =
   let ret = to_data script prefix in
   Data.Chunk.(to_bytes (of_ptr ret))
 
+let to_hex ?prefix t =
+  Hex.of_string (to_bytes ?prefix t)
+
 let pp ppf t =
   Format.fprintf ppf "%s" (to_string t)
 
@@ -130,6 +144,11 @@ let of_mnemonic str =
   match from_string script str with
   | false -> None
   | true -> Some (Script script)
+
+let of_mnemonic_exn str =
+  match of_mnemonic str with
+  | None -> invalid_arg "Script.of_mnemonic"
+  | Some t -> t
 
 let of_script opcodes =
   let opcodes_str = Format.asprintf "%a%!" Script.pp opcodes in
@@ -172,7 +191,7 @@ module P2SH_multisig = struct
 
   let scriptSig ~endorsements ~scriptRedeem =
     let open Script.Opcode in
-    let scriptRedeem_bytes = to_bytes (of_script scriptRedeem) in
+    let scriptRedeem_bytes = to_bytes scriptRedeem in
     let script = [Data scriptRedeem_bytes] in
     of_script
       (Zero :: (ListLabels.map endorsements ~f:(fun e -> Data e)) @ script)

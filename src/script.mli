@@ -52,8 +52,14 @@ val of_bytes : ?prefix:bool -> string -> t option
 val of_hex : ?prefix:bool -> Hex.t -> t option
 val of_mnemonic : string -> t option
 
+val of_chunk_exn : ?prefix:bool -> Data.Chunk.t -> t
+val of_bytes_exn : ?prefix:bool -> string -> t
+val of_hex_exn : ?prefix:bool -> Hex.t -> t
+val of_mnemonic_exn : string -> t
+
 val to_string : ?active_forks:rule_fork list -> t -> string
 val to_bytes : ?prefix:bool -> t -> string
+val to_hex : ?prefix:bool -> t -> Hex.t
 
 val is_valid : t -> bool
 
@@ -72,5 +78,5 @@ module P2SH_multisig : sig
 
   val scriptSig:
     endorsements:string list ->
-    scriptRedeem:Script.t -> t
+    scriptRedeem:t -> t
 end

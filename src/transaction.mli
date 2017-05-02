@@ -31,10 +31,18 @@ module Input : sig
     script:Script.t ->
     unit -> t
 
-  val get_script : t -> Script.t
-  val set_script : t -> Script.t -> unit
+  val of_bytes : ?wire:bool -> string -> t option
+  val of_bytes_exn : ?wire:bool -> string -> t
+  val to_bytes : ?wire:bool -> t -> string
+
+  val of_hex : ?wire:bool -> Hex.t -> t option
+  val of_hex_exn : ?wire:bool -> Hex.t -> t
+  val to_hex : ?wire:bool -> t -> Hex.t
 
   val is_valid : t -> bool
+
+  val get_script : t -> Script.t
+  val set_script : t -> Script.t -> unit
 end
 
 module Output : sig
@@ -84,6 +92,9 @@ val check : t -> (unit, string) result
 
 val of_bytes : ?wire:bool -> string -> t option
 val of_hex : ?wire:bool -> Hex.t -> t option
+
+val of_bytes_exn : ?wire:bool -> string -> t
+val of_hex_exn : ?wire:bool -> Hex.t -> t
 
 val to_bytes : ?wire:bool -> t -> string
 val to_hex : ?wire:bool -> t -> Hex.t

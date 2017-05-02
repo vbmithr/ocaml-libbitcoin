@@ -129,6 +129,14 @@ module Input : sig
   val get_script : t -> Script.t
   val set_script : t -> Script.t -> unit
 
+  val of_bytes : ?wire:bool -> string -> t option
+  val of_bytes_exn : ?wire:bool -> string -> t
+  val to_bytes : ?wire:bool -> t -> string
+
+  val of_hex : ?wire:bool -> Hex.t -> t option
+  val of_hex_exn : ?wire:bool -> Hex.t -> t
+  val to_hex : ?wire:bool -> t -> Hex.t
+
   val is_valid : t -> bool
 
   module List : sig
@@ -145,6 +153,8 @@ module Input : sig
   end
 end = struct
 
+  let empty = foreign "bc_create_input"
+      (void @-> returning (ptr void))
   let create = foreign "bc_create_input_Values"
       (ptr void @-> ptr void @-> int32_t @-> returning (ptr void))
   let destroy = foreign "bc_destroy_input"
@@ -159,6 +169,14 @@ end = struct
       (ptr void @-> ptr void @-> returning void)
   let is_valid = foreign "bc_input__is_valid"
       (ptr void @-> returning bool)
+  let to_data = foreign "bc_input__to_data"
+      (ptr void @-> returning (ptr void))
+  let to_data_nowire = foreign "bc_input__to_data_nowire"
+      (ptr void @-> returning (ptr void))
+  let from_data = foreign "bc_input__from_data"
+      (ptr void @-> ptr void @-> returning bool)
+  let from_data_nowire = foreign "bc_input__from_data_nowire"
+      (ptr void @-> ptr void @-> returning bool)
 
   type t = {
     sequence: Int32.t ;
@@ -167,7 +185,6 @@ end = struct
     input_ptr : unit ptr ;
   }
   type input = t
-
   let pp ppf { sequence ; prev_out ; script } =
     Format.fprintf ppf
       "{@[<hov 1> sequence = 0x%lx ;@;prev_out = %a ;@;script = %a }@]"
@@ -183,6 +200,27 @@ end = struct
     let prev_out = Output_point.of_ptr (get_previous_output input_ptr) in
     let script = Script.of_ptr_nodestroy (get_script input_ptr) in
     { sequence ; prev_out ; script ; input_ptr }
+
+  let to_bytes ?(wire=true) { input_ptr } =
+    let to_data_f = match wire with true -> to_data | false -> to_data_nowire in
+    Data.Chunk.(to_data_f input_ptr |> of_ptr |> to_bytes)
+
+  let of_bytes ?(wire=true) bytes =
+    let Data.Chunk.Chunk chunk_ptr = Data.Chunk.of_bytes bytes in
+    let from_data_f = match wire with true -> from_data | false -> from_data_nowire in
+    let empty = empty () in
+    match from_data_f empty chunk_ptr with
+    | false -> None
+    | true -> Some (of_ptr empty)
+
+  let of_bytes_exn ?wire bytes =
+    match (of_bytes ?wire bytes) with
+    | None -> invalid_arg "Transaction.of_bytes_exn"
+    | Some t -> t
+
+  let to_hex ?wire t = Hex.of_string (to_bytes ?wire t)
+  let of_hex ?wire hex = of_bytes ?wire (Hex.to_string hex)
+  let of_hex_exn ?wire hex = of_bytes_exn ?wire (Hex.to_string hex)
 
   let create
       ?(sequence=0xffff_ffffl)
@@ -508,6 +546,16 @@ let of_bytes ?wire bytes =
 
 let of_hex ?wire hex =
   from_data ?wire (Data.Chunk.of_hex hex)
+
+let of_bytes_exn ?wire bytes =
+  match of_bytes ?wire bytes with
+  | None -> invalid_arg "Transaction.of_bytes"
+  | Some t -> t
+
+let of_hex_exn ?wire hex =
+  match of_hex ?wire hex with
+  | None -> invalid_arg "Transaction.of_hex"
+  | Some t -> t
 
 let to_data ?(wire=true) { transaction_ptr } =
   let f = if wire then to_data else to_data_nowire in
