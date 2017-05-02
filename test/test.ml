@@ -5,6 +5,24 @@ open OUnit2
 let gen_32bytes () =
   Sodium.Random.Bytes.generate 32
 
+let test_script ctx =
+  let open Script in
+  let mnemonic = "[aaaa] [bbbb]" in
+  let mnemonic2 = "[3044022040aedf5483fde7b8fef90077a4c2c43fd348d6e378173e03bfd985f7c372b76a0220020a696b86bd7ab9211a92f17d8bb50e110a6fb07872237a2b05c6ea65ddf4db01] [02712321dd9dd72c285b3dd306445381e19d9b6461e94322ac0f5fdc6dc807395c]" in
+  let script2 = of_mnemonic mnemonic2 in
+  assert_equal true (script2 <> None) ;
+  let script = of_mnemonic mnemonic in
+  assert_equal true (script <> None) ;
+  match script with
+  | None -> assert false
+  | Some script -> begin
+      let opcodes = Script.Opcode.[Data "\xaa\xaa" ; Data "\xbb\xbb"] in
+      let script' = of_script opcodes in
+      assert_equal ~printer:(fun x -> x) mnemonic (to_string script') ;
+      let mnemonic' = to_string script in
+      assert_equal ~printer:(fun x -> x) mnemonic mnemonic'
+    end
+
 let test_output_list ctx =
   let open Transaction in
   let script = Script.invalid () in
@@ -191,6 +209,7 @@ let suite =
     "test_wif" >:: test_wif ;
     "test_payment_address" >:: test_payment_address ;
     "test_output_list" >:: test_output_list ;
+    "test_script" >:: test_script ;
   ]
 
 let () = run_test_tt_main suite

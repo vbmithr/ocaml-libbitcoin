@@ -132,8 +132,9 @@ let of_mnemonic str =
   | true -> Some (Script script)
 
 let of_script opcodes =
-  match of_mnemonic (Format.asprintf "%a" Script.pp opcodes) with
-  | None -> invalid_arg "Script.of_script"
+  let opcodes_str = Format.asprintf "%a%!" Script.pp opcodes in
+  match of_mnemonic opcodes_str with
+  | None -> invalid_arg ("Script.of_script: " ^ opcodes_str)
   | Some script -> script
 
 let is_valid (Script t) =
