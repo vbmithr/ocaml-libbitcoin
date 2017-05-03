@@ -16,5 +16,6 @@ depends: [
   "stdio" {build}
   "configurator" {build}
   "ctypes" {>= "0.11.3"}
+  "base58"
 ]
 build: [ "jbuilder" "build" "@install" ]
