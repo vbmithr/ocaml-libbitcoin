@@ -9,15 +9,11 @@ end
 
 type t = private Ec_private of unit ptr
 
-type version =
-  | Mainnet
-  | Testnet
-
-val of_wif : ?version:version -> string -> t option
-val of_wif_exn : ?version:version -> string -> t
+val of_wif : ?testnet:bool -> string -> t option
+val of_wif_exn : ?testnet:bool -> string -> t
 
 val of_secret :
-  ?version:version -> ?compress:bool -> Ec_secret.t -> t
+  ?testnet:bool -> ?compress:bool -> Ec_secret.t -> t
 
 val secret : t -> Ec_secret.t
 

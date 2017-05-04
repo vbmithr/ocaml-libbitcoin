@@ -7,6 +7,9 @@ let of_string = foreign "bc_create_ec_public_String"
 let of_private = foreign "bc_create_ec_public_Private"
     ((ptr void) @-> returning (ptr void))
 
+let of_data = foreign "bc_create_ec_public_Data"
+    (ptr void @-> returning (ptr void))
+
 let destroy = foreign "bc_destroy_ec_public"
     ((ptr void) @-> returning void)
 
@@ -19,6 +22,20 @@ let of_private (Ec_private.Ec_private priv) =
   let ret = of_private priv in
   Gc.finalise destroy ret ;
   Ec_public ret
+
+let of_bytes bytes =
+  let Data.Chunk.Chunk chunk = Data.Chunk.of_bytes bytes in
+  let ret = of_data chunk in
+  if ptr_compare ret null = 0 then None
+  else begin
+    Gc.finalise destroy ret ;
+    Some (Ec_public ret)
+  end
+
+let of_bytes_exn bytes =
+  match of_bytes bytes with
+  | None -> invalid_arg "Ec_public.of_bytes_exn"
+  | Some t -> t
 
 let of_hex (`Hex hex) =
   let ret = of_string hex in
@@ -33,9 +50,6 @@ let of_hex_exn hex =
   | None -> invalid_arg "Ec_public.of_hex_exn"
   | Some t -> t
 
-let encode (Ec_public ec_public_ptr) =
-  `Hex Data.String.(to_string (of_ptr (encode ec_public_ptr)))
-
 let to_bytes (Ec_public ec_public_ptr) =
   let to_data = foreign "bc_ec_public__to_data"
       (ptr void @-> ptr void @-> returning bool) in
@@ -45,3 +59,6 @@ let to_bytes (Ec_public ec_public_ptr) =
   match to_data ec_public_ptr chunk_ptr with
   | true -> to_bytes chunk
   | false -> failwith "Ec_public.to_bytes: internal error"
+
+let to_hex (Ec_public ec_public_ptr) =
+  `Hex Data.String.(to_string (of_ptr (encode ec_public_ptr)))

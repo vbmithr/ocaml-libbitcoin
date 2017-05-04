@@ -190,13 +190,13 @@ let test_basic ctx =
       Ec_private.Ec_secret.of_bytes seed
     end in
   let privkeys =
-    ListLabels.map privkeys ~f:Ec_private.(of_secret ~version:Testnet) in
+    ListLabels.map privkeys ~f:Ec_private.(of_secret ~testnet:true) in
   ListLabels.iter privkeys ~f:begin fun sk ->
     print_endline @@ Ec_private.encode sk
   end ;
   let pubkeys = ListLabels.map privkeys ~f:Ec_public.of_private in
   ListLabels.iter pubkeys ~f:begin fun pk ->
-    let `Hex pk_hex = Ec_public.encode pk in
+    let `Hex pk_hex = Ec_public.to_hex pk in
     print_endline pk_hex
   end ;
   let addrs = ListLabels.map pubkeys

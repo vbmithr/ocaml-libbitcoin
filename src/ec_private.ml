@@ -20,10 +20,6 @@ module Ec_secret = struct
     Ec_secret t
 end
 
-type version =
-  | Mainnet
-  | Testnet
-
 let mainnet =
   let f = foreign "bc_ec_private__mainnet" (void @-> returning int) in
   lazy (f ())
@@ -32,39 +28,39 @@ let testnet =
   let f = foreign "bc_ec_private__testnet" (void @-> returning int) in
   lazy (f ())
 
-let int_of_version = function
-  | Mainnet -> Lazy.force mainnet
-  | Testnet -> Lazy.force testnet
+let version_of_testnet = function
+  | false -> Lazy.force mainnet
+  | true -> Lazy.force testnet
 
 type t = Ec_private of unit ptr
 
 let destroy = foreign "bc_destroy_ec_private"
     ((ptr void) @-> returning void)
 
-let of_wif ?(version=Mainnet) wif =
+let of_wif ?(testnet=false) wif =
   let create = foreign "bc_create_ec_private_String_Version"
       (string @-> int @-> returning (ptr void)) in
   let is_valid = foreign "bc_ec_private__is_valid"
       (ptr void @-> returning bool) in
-  let t = create wif (int_of_version version) in
+  let t = create wif (version_of_testnet testnet) in
   if not @@ is_valid t then None
   else begin
     Gc.finalise destroy t ;
     Some (Ec_private t)
   end
 
-let of_wif_exn ?version wif =
-  match of_wif ?version wif with
+let of_wif_exn ?testnet wif =
+  match of_wif ?testnet wif with
   | None -> invalid_arg "Ec_private.of_wif_exn"
   | Some t -> t
 
-let of_secret ?(version=Mainnet) ?(compress=true) (Ec_secret.Ec_secret secret) =
+let of_secret ?(testnet=false) ?(compress=true) (Ec_secret.Ec_secret secret) =
   let create = foreign "bc_create_ec_private_Secret_Version"
       ((ptr void) @-> int @-> returning (ptr void)) in
   let create_uncompressed = foreign "bc_create_ec_private_Secret_Version_nocompress"
       ((ptr void) @-> int @-> returning (ptr void)) in
   let create_f = (if compress then create else create_uncompressed) in
-  let t = create_f secret (int_of_version version) in
+  let t = create_f secret (version_of_testnet testnet) in
   Gc.finalise destroy t ;
   Ec_private t
 
