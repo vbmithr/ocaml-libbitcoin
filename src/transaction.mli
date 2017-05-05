@@ -43,6 +43,8 @@ module Input : sig
 
   val get_script : t -> Script.t
   val set_script : t -> Script.t -> unit
+
+  val serialized_size : ?wire:bool -> t -> int
 end
 
 module Output : sig

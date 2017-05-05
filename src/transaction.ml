@@ -139,6 +139,8 @@ module Input : sig
 
   val is_valid : t -> bool
 
+  val serialized_size : ?wire:bool -> t -> int
+
   module List : sig
     type t = private {
       inputs : input list ;
@@ -177,6 +179,10 @@ end = struct
       (ptr void @-> ptr void @-> returning bool)
   let from_data_nowire = foreign "bc_input__from_data_nowire"
       (ptr void @-> ptr void @-> returning bool)
+  let serialized_size = foreign "bc_input__serialized_size"
+      (ptr void @-> returning int)
+  let serialized_size_nowire = foreign "bc_input__serialized_size_nowire"
+      (ptr void @-> returning int)
 
   type t = {
     sequence: Int32.t ;
@@ -242,6 +248,9 @@ end = struct
 
   let is_valid { input_ptr } =
     is_valid input_ptr
+
+  let serialized_size ?(wire=true) { input_ptr } =
+    (if wire then serialized_size else serialized_size_nowire) input_ptr
 
   module List = struct
 
