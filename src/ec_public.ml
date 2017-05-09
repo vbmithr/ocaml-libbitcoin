@@ -1,14 +1,40 @@
 open Ctypes
 open Foreign
 
+module Ec_uncompressed = struct
+  type t = Ec_uncompressed of unit ptr
+  let destroy = foreign "bc_destroy_ec_uncompressed"
+      (ptr void @-> returning void)
+
+  let of_bytes = foreign "bc_create_ec_uncompressed_Data"
+      (string @-> returning (ptr_opt void))
+
+  let of_hex hex =
+    match of_bytes (Hex.to_string hex) with
+    | None -> None
+    | Some t ->
+      Gc.finalise destroy t ;
+      Some (Ec_uncompressed t)
+
+  let of_bytes bytes =
+    match of_bytes bytes with
+    | None -> None
+    | Some t ->
+      Gc.finalise destroy t ;
+      Some (Ec_uncompressed t)
+end
+
 let of_string = foreign "bc_create_ec_public_String"
     (string @-> returning (ptr void))
 
 let of_private = foreign "bc_create_ec_public_Private"
     ((ptr void) @-> returning (ptr void))
 
+let of_uncompressed_point = foreign "bc_create_ec_public_UncompPoint"
+    (ptr void @-> returning (ptr_opt void))
+
 let of_data = foreign "bc_create_ec_public_Data"
-    (ptr void @-> returning (ptr void))
+    (ptr void @-> returning (ptr_opt void))
 
 let destroy = foreign "bc_destroy_ec_public"
     ((ptr void) @-> returning void)
@@ -25,12 +51,11 @@ let of_private (Ec_private.Ec_private priv) =
 
 let of_bytes bytes =
   let Data.Chunk.Chunk chunk = Data.Chunk.of_bytes bytes in
-  let ret = of_data chunk in
-  if ptr_compare ret null = 0 then None
-  else begin
-    Gc.finalise destroy ret ;
-    Some (Ec_public ret)
-  end
+  match of_data chunk with
+  | None -> None
+  | Some t ->
+    Gc.finalise destroy t ;
+    Some (Ec_public t)
 
 let of_bytes_exn bytes =
   match of_bytes bytes with
@@ -62,3 +87,16 @@ let to_bytes (Ec_public ec_public_ptr) =
 
 let to_hex (Ec_public ec_public_ptr) =
   `Hex Data.String.(to_string (of_ptr (encode ec_public_ptr)))
+
+let of_uncomp_point bytes =
+  match Ec_uncompressed.of_bytes bytes with
+  | None -> None
+  | Some (Ec_uncompressed ptr) ->
+    match of_uncompressed_point ptr with
+    | None -> None
+    | Some ptr -> Some (Ec_public ptr)
+
+let of_uncomp_point_exn bytes =
+  match of_uncomp_point bytes with
+  | None -> invalid_arg "Ec_public.of_uncomp_point_exn"
+  | Some t -> t

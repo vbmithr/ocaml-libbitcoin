@@ -9,5 +9,8 @@ val of_bytes_exn : string -> t
 val of_hex : Hex.t -> t option
 val of_hex_exn : Hex.t -> t
 
+val of_uncomp_point : string -> t option
+val of_uncomp_point_exn : string -> t
+
 val to_bytes : t -> string
 val to_hex : t -> Hex.t
