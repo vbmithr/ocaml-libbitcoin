@@ -30,7 +30,10 @@ let of_string = foreign "bc_create_ec_public_String"
 let of_private = foreign "bc_create_ec_public_Private"
     ((ptr void) @-> returning (ptr void))
 
-let of_uncompressed_point = foreign "bc_create_ec_public_UncompPoint"
+let of_uncomp_point = foreign "bc_create_ec_public_UncompPoint"
+    (ptr void @-> returning (ptr_opt void))
+
+let of_uncomp_point_compress = foreign "bc_create_ec_public_UncompPoint_compress"
     (ptr void @-> returning (ptr_opt void))
 
 let of_data = foreign "bc_create_ec_public_Data"
@@ -88,15 +91,25 @@ let to_bytes (Ec_public ec_public_ptr) =
 let to_hex (Ec_public ec_public_ptr) =
   `Hex Data.String.(to_string (of_ptr (encode ec_public_ptr)))
 
-let of_uncomp_point bytes =
+let pp ppf t =
+  let `Hex t_hex = to_hex t in
+  Format.fprintf ppf "%s" t_hex
+
+let show t =
+  let `Hex t_hex = to_hex t in
+  Printf.sprintf "%s" t_hex
+
+let of_uncomp_point ?(compress=true) bytes =
+  let of_uncomp_point =
+    if compress then of_uncomp_point_compress else of_uncomp_point in
   match Ec_uncompressed.of_bytes bytes with
   | None -> None
   | Some (Ec_uncompressed ptr) ->
-    match of_uncompressed_point ptr with
+    match of_uncomp_point ptr with
     | None -> None
     | Some ptr -> Some (Ec_public ptr)
 
-let of_uncomp_point_exn bytes =
+let of_uncomp_point_exn ?(compress=true) bytes =
   match of_uncomp_point bytes with
   | None -> invalid_arg "Ec_public.of_uncomp_point_exn"
   | Some t -> t
