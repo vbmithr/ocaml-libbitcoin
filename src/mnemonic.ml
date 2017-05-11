@@ -39,6 +39,9 @@ let word_multiple =
       (void @-> returning int) in
   lazy (word_multiple ())
 
+let decode = foreign "bc_decode_mnemonic_Passphrase"
+    (ptr void @-> ptr void @-> returning (ptr_opt void))
+
 let of_entropy ?(dict=English) entropy =
   let Data.Chunk.Chunk entropy_ptr = Data.Chunk.of_bytes entropy in
   let dict_ptr = dict_ptr_of_dict dict in
@@ -47,12 +50,15 @@ let of_entropy ?(dict=English) entropy =
 
 let to_seed ?(passphrase="") words =
   let open Data.String in
-  let decode = foreign "bc_decode_mnemonic_Passphrase"
-      (ptr void @-> ptr void @-> returning (ptr void)) in
-
   let String passphrase = of_string passphrase in
   let List.String_list str_list_ptr = Data.String.List.of_list words in
-  let long_hash_ptr = decode str_list_ptr passphrase in
-  if ptr_compare long_hash_ptr null = 0 then None
-  else
+  match decode str_list_ptr passphrase with
+  | None -> None
+  | Some long_hash_ptr ->
     Some (Hash.(long_hash_of_ptr long_hash_ptr |> long_hash_to_bytes))
+
+let to_seed_exn ?passphrase words =
+  match to_seed ?passphrase words with
+  | None -> invalid_arg "Mnemonic.to_seed_exn"
+  | Some seed -> seed
+
