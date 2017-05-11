@@ -457,16 +457,22 @@ let locktime_of_int = function
       | None -> invalid_arg "locktime_of_int"
       | Some t -> Time t
 
+type input_outputs = {
+  mutable inputs : Input.List.t ;
+  mutable outputs : Output.List.t ;
+}
+
+type transaction_ptr = unit ptr
+
 type t = {
   hash : Hash.Hash32.t ;
   version : int ;
   locktime : locktime ;
-  mutable inputs : Input.List.t ;
-  mutable outputs : Output.List.t ;
-  transaction_ptr : unit ptr ;
+  ios : input_outputs ;
+  transaction_ptr : transaction_ptr ;
 }
 
-let pp ppf { hash ; version ; locktime ; inputs ; outputs } =
+let pp ppf { hash ; version ; locktime ; ios = { inputs ; outputs } } =
   Format.fprintf ppf
     "{@[<hov 1> hash = %a ;@;version@ = %d ;@;locktime = %a ;\
      @;inputs = [@[<hov 0>%a@]] ;@;outputs = [@[<hov 0>%a@]]}@]"
@@ -510,7 +516,7 @@ let of_ptr_nodestroy transaction_ptr =
   let hash = Hash.Hash32.of_bytes_exn (Hash.hash_to_bytes hash) in
   let inputs = Input.List.of_ptr (get_inputs transaction_ptr) in
   let outputs = Output.List.of_ptr (get_outputs transaction_ptr) in
-  { hash ; version ; locktime ; inputs ; outputs ; transaction_ptr }
+  { hash ; version ; locktime ; ios = { inputs ; outputs } ; transaction_ptr }
 
 let create ?(version=1) ?(locktime=Immediate) inputs outputs =
   let inputs = Input.List.of_list inputs in
@@ -522,20 +528,20 @@ let create ?(version=1) ?(locktime=Immediate) inputs outputs =
   Gc.finalise destroy transaction_ptr ;
   let hash = Hash.hash_of_ptr (get_hash transaction_ptr) in
   let hash = Hash.Hash32.of_bytes_exn (Hash.hash_to_bytes hash) in
-  { hash ; version ; locktime ; inputs ; outputs ; transaction_ptr }
+  { hash ; version ; locktime ; ios = { inputs ; outputs } ; transaction_ptr }
 
-let get_inputs { inputs } = inputs.inputs
-let get_outputs { outputs } = outputs.outputs
+let get_inputs { ios = { inputs } } = inputs.inputs
+let get_outputs { ios = { outputs } } = outputs.outputs
 
 let set_inputs t inputs =
   let inputs = Input.List.of_list inputs in
   set_inputs t.transaction_ptr inputs.input_list_ptr ;
-  t.inputs <- inputs
+  t.ios.inputs <- inputs
 
 let set_outputs t outputs =
   let outputs = Output.List.of_list outputs in
   set_outputs t.transaction_ptr outputs.output_list_ptr ;
-  t.outputs <- outputs
+  t.ios.outputs <- outputs
 
 let from_data ?(wire=true) (Data.Chunk.Chunk chunk) =
   let factory_from_data = foreign "bc_transaction__factory_from_data"
@@ -589,6 +595,52 @@ let check { transaction_ptr } =
   match Error.message error with
   | None -> Ok ()
   | Some msg -> Error msg
+
+module List = struct
+  let create = foreign "bc_create_transaction_list"
+      (void @-> returning (ptr void))
+  let destroy = foreign "bc_destroy_transaction_list"
+      (ptr void @-> returning void)
+  let push_back = foreign "bc_transaction_list__push_back"
+      (ptr void @-> ptr void @-> returning void)
+  let size = foreign "bc_transaction_list__size"
+      (ptr void @-> returning int)
+  let get_at = foreign "bc_transaction_list__at"
+      (ptr void @-> int @-> returning (ptr void))
+
+  type transaction_list_ptr = unit ptr
+
+  type nonrec t = {
+    transactions : t list ;
+    transaction_list_ptr : transaction_list_ptr ;
+  }
+
+  let pp ppf t =
+    let open Format in
+    let pp_sep fmt () = fprintf fmt " ;@;" in
+    pp_print_list ~pp_sep pp ppf t.transactions
+
+  let show t =
+    Format.asprintf "%a" pp t
+
+  let to_list transaction_list_ptr =
+    let rec get acc = function
+      | n when n < 0 -> acc
+      | n -> get (of_ptr_nodestroy (get_at transaction_list_ptr n) :: acc) (pred n) in
+    get [] (pred (size transaction_list_ptr))
+
+  let of_ptr transaction_list_ptr =
+    let transactions = to_list transaction_list_ptr in
+    { transactions ; transaction_list_ptr }
+
+  let of_list transactions =
+    let transaction_list_ptr = create () in
+    ListLabels.iter transactions ~f:begin fun { transaction_ptr } ->
+      push_back transaction_list_ptr transaction_ptr
+    end ;
+    Gc.finalise destroy transaction_list_ptr ;
+    { transactions ; transaction_list_ptr }
+end
 
 module Sign = struct
   type hashtype =

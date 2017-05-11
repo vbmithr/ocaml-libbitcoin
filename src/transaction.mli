@@ -71,7 +71,17 @@ type locktime =
   | Block of int
   | Time of Ptime.t
 
-type t
+type input_outputs
+type transaction_ptr
+
+type t = {
+  hash : Hash.Hash32.t ;
+  version : int ;
+  locktime : locktime ;
+
+  ios : input_outputs ;
+  transaction_ptr : transaction_ptr ;
+}
 
 val pp : Format.formatter -> t -> unit
 val show : t -> string
@@ -100,6 +110,20 @@ val of_hex_exn : ?wire:bool -> Hex.t -> t
 
 val to_bytes : ?wire:bool -> t -> string
 val to_hex : ?wire:bool -> t -> Hex.t
+
+module List : sig
+  type transaction_list_ptr
+
+  type nonrec t = {
+    transactions : t list ;
+    transaction_list_ptr : transaction_list_ptr ;
+  }
+
+  val pp : Format.formatter -> t -> unit
+  val show : t -> string
+
+  val of_ptr : unit ptr -> t
+end
 
 module Sign : sig
   type hashtype =
