@@ -10,6 +10,7 @@ module type S = sig
   val of_hex : Hex.t -> t option
 
   val to_bytes : t -> string
+  val to_hex : t -> Hex.t
 
   val pp : Format.formatter -> t -> unit
   val show : t -> string

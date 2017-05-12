@@ -30,3 +30,6 @@ val show : t -> string
 
 val of_bytes : string -> t option
 val of_bytes_exn : string -> t
+
+val of_hex : Hex.t -> t option
+val of_hex_exn : Hex.t -> t

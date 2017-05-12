@@ -126,3 +126,6 @@ let of_bytes_exn bytes =
   match of_bytes bytes with
   | None -> invalid_arg "Block.of_bytes_exn"
   | Some b -> b
+
+let of_hex hex = of_bytes (Hex.to_string hex)
+let of_hex_exn hex = of_bytes_exn (Hex.to_string hex)
