@@ -16,6 +16,9 @@ module Header : sig
 
   val pp : Format.formatter -> t -> unit
   val show : t -> string
+
+  val of_bytes : string -> t option
+  val of_bytes_exn : string -> t
 end
 
 type block_ptr

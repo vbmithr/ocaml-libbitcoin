@@ -53,6 +53,9 @@ module Header = struct
   let hash = foreign "bc_header__hash"
       (ptr void @-> returning (ptr void))
 
+  let from_data = foreign "bc_header__from_data"
+      (ptr void @-> returning (ptr_opt void))
+
   let of_ptr ptr =
     if is_null ptr then None
     else if not (is_valid ptr) then None
@@ -80,6 +83,17 @@ module Header = struct
     match of_ptr ptr with
     | None -> invalid_arg "Block.Header.of_ptr_exn"
     | Some h -> h
+
+  let of_bytes bytes =
+    let Data.Chunk.Chunk chunk = Data.Chunk.of_bytes bytes in
+    match from_data chunk with
+    | None -> None
+    | Some ptr -> of_ptr ptr
+
+  let of_bytes_exn bytes =
+    match of_bytes bytes with
+    | None -> invalid_arg "Block.Header.of_bytes_exn"
+    | Some t -> t
 end
 
 type block_ptr = unit ptr
