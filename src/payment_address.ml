@@ -11,7 +11,7 @@ let of_point = foreign "bc_create_payment_address_Point_Version"
     (ptr void @-> int @-> returning (ptr_opt void))
 
 let of_script = foreign "bc_create_payment_address_Script_Version"
-    ((ptr void) @-> int @-> returning (ptr void))
+    (ptr void @-> int @-> returning (ptr_opt void))
 
 type t = Payment_address of unit ptr
 
@@ -48,18 +48,15 @@ let of_point ?(version=Base58.Bitcoin.P2PKH) (Ec_public.Ec_public pk) =
   | _ ->
     invalid_arg "Payment_address.of_point"
 
-let of_script ?(version=Base58.Bitcoin.P2PKH) (Script.Script script) =
-  let ret = of_script script (Base58.Bitcoin.int_of_version version) in
-  if ptr_compare ret null <> 0 && is_valid ret then begin
-    Gc.finalise destroy ret ;
-    Some (Payment_address ret)
-  end else
-    None
-
-let of_script_exn ?version script =
-  match of_script ?version script with
-  | None -> invalid_arg "Payment_address.of_string_exn"
-  | Some script -> script
+let of_script ?(version=Base58.Bitcoin.P2SH) (Script.Script script) =
+  match of_script script (Base58.Bitcoin.int_of_version version) with
+  | None -> invalid_arg "Payment_address.of_script"
+  | Some t when not (is_valid t) ->
+    destroy t ;
+    invalid_arg "Payment_address.of_script: invalid address produced"
+  | Some t ->
+    Gc.finalise destroy t ;
+    Payment_address t
 
 let to_b58check (Payment_address t) =
   let version = foreign "bc_payment_address__version"
