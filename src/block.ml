@@ -63,18 +63,18 @@ module Header = struct
         Hash.(Hash32.of_bytes_exn (hash_of_ptr (merkle ptr) |> hash_to_bytes)) in
       let prev_block_hash =
         Hash.(Hash32.of_bytes_exn (hash_of_ptr (prev_block_hash ptr) |> hash_to_bytes)) in
-      let timestamp =
-        Base.Option.value_exn (Ptime.of_float_s (Int32.to_float (timestamp ptr))) in
-      Some {
-        version = version ptr ;
-        hash ;
-        merkle ;
-        prev_block_hash ;
-        bits = bits ptr ;
-        nonce = nonce ptr ;
-        timestamp ;
-        header_ptr = ptr
-      }
+      match Ptime.of_float_s (Int32.to_float (timestamp ptr)) with
+      | None -> invalid_arg "Ptime.of_float_s"
+      | Some timestamp -> Some {
+          version = version ptr ;
+          hash ;
+          merkle ;
+          prev_block_hash ;
+          bits = bits ptr ;
+          nonce = nonce ptr ;
+          timestamp ;
+          header_ptr = ptr
+        }
 
   let of_ptr_exn ptr =
     match of_ptr ptr with
