@@ -13,6 +13,12 @@ type rule_fork =
   | Consensus
   | All
 
+module Operation : sig
+  type t
+
+  val to_bytes : t -> string
+end
+
 module Script : sig
   module Opcode : sig
     type t =
@@ -62,6 +68,10 @@ val to_bytes : ?prefix:bool -> t -> string
 val to_hex : ?prefix:bool -> t -> Hex.t
 
 val is_valid : t -> bool
+
+val operation : t -> int -> Operation.t option
+(** [operation t i] is [Some op] if [script] has an operation at index
+    [i]. *)
 
 module P2PKH : sig
   val scriptPubKey : Base58.Bitcoin.t -> t

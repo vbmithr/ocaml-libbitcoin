@@ -32,6 +32,24 @@ let int_of_rule_forks =
     a lor (int_of_rule_fork rf)
   end
 
+module Operation : sig
+  type t
+
+  val of_ptr_nodestroy : unit ptr -> t
+  val to_bytes : t -> string
+end= struct
+  type t = Operation of unit ptr
+  let to_data = foreign "bc_operation__to_data"
+      (ptr void @-> returning (ptr void))
+
+  let of_ptr_nodestroy ptr =
+    Operation ptr
+
+  let to_bytes (Operation ptr) =
+    let chunk = Data.Chunk.of_ptr (to_data ptr) in
+    Data.Chunk.to_bytes chunk
+end
+
 module Script = struct
   module Opcode = struct
     type t =
@@ -162,6 +180,14 @@ let is_valid (Script t) =
   let is_valid_operations =
     foreign "bc_script__is_valid_operations" ((ptr void) @-> returning bool) in
   is_valid t && is_valid_operations t
+
+let at = foreign "bc_script__at"
+    (ptr void @-> int @-> returning (ptr_opt void))
+
+let operation (Script t) i =
+  match at t i with
+  | None -> None
+  | Some ptr -> Some (Operation.of_ptr_nodestroy ptr)
 
 module P2PKH = struct
   let scriptPubKey { Base58.Bitcoin.payload } =
