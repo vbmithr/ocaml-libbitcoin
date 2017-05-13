@@ -79,15 +79,6 @@ let test_mnemonic ctx =
       Printf.printf "%s\n" seed_hex ;
   end
 
-let test_input ctx =
-  let script = Script.of_hex_exn (`Hex "0047304402207d87158c72a6a94216ed020ff74c9854a6bc698a808c4a0b6c9439b8af4d894802206e2a8677384d4b4006b1644dad369fa90e23eeef01975616bde9ff5ab92bb871014830450221009731b80dcf4f438897bb956daf5fd6bc6da5f901c7456ca0b8dbe82ca00a7c1e02207f4b9d26a5ddf31c345ab2aa49f2b447e68e4ea78a9d4f0b100e166f8df29a75014c7f14049812487e7dbe27ccd0ca8d3e41795f2344f506755221022f4a602f021cc2c7dd5536eeddff28173dc7f6bdd494e546487c0594942928bb2103bf0ddb74ec76b17b0a55f4ad6a7844e5a75666ba2b2fc8c0fa84d2a382a839892103732373d6dfd7a03a5c3860c69790d8a7cb9538dc82593703af0bdd50c77f066c53ae") in
-  let prev_out_hash = Hash.Hash32.of_hex_exn (`Hex "015dfb382a64b967273e0fb0f2e24f3b5c6775160103a6de85a579021e8a4a92") in
-  let open Transaction.Input in
-  let t = create ~script ~prev_out_hash ~prev_out_index:0 () in
-  let size = serialized_size t in
-  assert_bool "input is valid" (is_valid t) ;
-  assert_bool "input size > 0" (size > 0) ;
-  Printf.printf "Crowdsale input size: %d\n" size
 
 let test_transaction ctx =
   let open Transaction in
@@ -204,7 +195,7 @@ let test_transaction ctx =
 
 let test_basic ctx =
   Sodium.Random.stir () ;
-  let privkeys = ListLabels.map [() ; () ; ()] ~f:begin fun () ->
+  let privkeys = ListLabels.map [() ; ()] ~f:begin fun () ->
       let seed = gen_32bytes () in
       Ec_private.Ec_secret.of_bytes seed
     end in
@@ -220,7 +211,18 @@ let test_basic ctx =
   end ;
   let addrs = ListLabels.map pubkeys
       ~f:(Payment_address.of_point ~version:Testnet_P2PKH) in
-  let _script = Script.P2SH_multisig.scriptRedeem ~threshold:2 pubkeys in
+  let scriptRedeem = Script.(P2SH_multisig.scriptRedeem ~threshold:2 pubkeys |> of_script) in
+  let ed = `Hex "3045022100bbc77e7661e80533ed49ccbf0f3cf7ed3e573322f200de18041c8c1b06a22f4902200b4ed7b645365253b745dcea5218b2a8e8cdd237a6fb16b8ce6567e6dc1f126c01" in
+  let ed = Hex.to_string ed in
+  let script = Script.P2SH_multisig.scriptSig ~endorsements:[ed ; ed] ~scriptRedeem in
+  let prev_out_hash =
+    Hash.Hash32.of_hex_exn (`Hex "015dfb382a64b967273e0fb0f2e24f3b5c6775160103a6de85a579021e8a4a92") in
+  let open Transaction.Input in
+  let t = create ~script ~prev_out_hash ~prev_out_index:0 () in
+  let size = serialized_size t in
+  assert_bool "input is valid" (is_valid t) ;
+  assert_bool "input size > 0" (size > 0) ;
+  Printf.printf "Crowdsale input size: %d\n" size ;
   let addrs_encoded = ListLabels.map addrs ~f:Payment_address.to_b58check in
   ListLabels.iter addrs_encoded ~f:begin fun addr ->
     match Payment_address.of_b58check addr with
@@ -231,7 +233,6 @@ let test_basic ctx =
 let suite =
   "libbitcoin" >::: [
     "test_basic" >:: test_basic ;
-    "test_input" >:: test_input ;
     "test_transaction" >:: test_transaction ;
     "test_mnemonic" >:: test_mnemonic ;
     "test_wif" >:: test_wif ;
