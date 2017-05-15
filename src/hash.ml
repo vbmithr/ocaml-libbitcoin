@@ -44,14 +44,14 @@ module Make (Size : sig val length : int end) = struct
     try Some (of_hex_exn hex) with _ -> None
 
   let to_bytes t = t
-  let to_hex t = Hex.of_string t
+  let to_hex t = Hex.of_string (string_rev t)
 
   let pp ppf t =
-    let `Hex t_hex = to_hex (string_rev t) in
+    let `Hex t_hex = to_hex t in
     Format.fprintf ppf "%s" t_hex
 
   let show t =
-    let `Hex t_hex = to_hex (string_rev t) in
+    let `Hex t_hex = to_hex t in
     t_hex
 end
 
